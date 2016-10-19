@@ -1,0 +1,159 @@
+\section{Security-Aware Program Logic}
+\label{related-ddifc}
+
+%There are many different systems for reasoning about information flow. 
+%We will briefly discuss some of the more closely-related ones here.
+
+%Some IFC systems with declassification, such as Hi-Star~\cite{histar}, Flume~\cite{flume},
+%and RESIN~\cite{resin}, reason at the operating system or process level, rather than the language 
+%level. These systems can support complex security policies, but their formal
+%guarantees suffer due to how coarse-grained they are. 
+
+\begin{comment}
+Hi-Star~\cite{histar} is a security-aware operating 
+system that tracks and propagates security labels on processes and files. Processes with a special
+declassification privilege are allowed to perform certain declassifications. We are not aware of any
+formal, end-to-end noninterference guarantee for Hi-Star. 
+
+Flume~\cite{flume} takes many ideas from Hi-Star, places them in
+a more formalized and abstract setting, and provides a cleaner label model and declassification 
+system. A process-level pure noninterference theorem is proved when no process with declassification 
+privileges is being executed. However, Flume is forced to assume the worst about any process that
+does have declassification privileges since it does not know the process's underlying code. A process
+with the privilege to declassify Alice's data must be completely trusted by Alice. This is similar to
+our notion of isolated method, except that the trusted base is only a few lines of code, rather than
+the entirety of the code being executed by the trusted process. Additionally, our system allows for
+some declassification to occur without an explicit declassification command being used~--- this kind
+of declassification does not require any trusted code at all.
+
+RESIN~\cite{resin} is actually more of a combination between an OS-level and a language-level IFC 
+system. If a process needs to declassify some data, it must pass the data through a policy object.
+This policy object is much like our notion of isolated method in that it contains some
+trusted code (usually just a few lines) that releases the high-security data. The object also comes
+with some metadata describing the conditions under which the declassification can be performed.
+This metadata describes a declassification policy, in the same way that labels being conditioned
+on state predicates describe a policy in our system. The primary difference between the systems is
+that RESIN does not provide any formal security guarantee. We would thus imagine that, after
+adding appropriate extensions to our system, we could formally verify the security of some 
+programs implemented in RESIN.
+\end{comment}
+
+In the area of language-based IFC reasoning~\cite{sabelfeld03}, there are many type systems 
+and program logics that share similarities with our logic presented in Chapter~\ref{logic-chapter}.
+
+Amtoft et al.~\cite{amtoft06} develop a program logic for proving noninterference of 
+a program written in a simple object-oriented language. They use relational assertions
+of the form ``$x$ is independent from high-security data.'' Such an assertion is equivalent
+to saying that $x$ contains \lo{} data in our assertion language. Thus their logic can be used to prove
+that the final values of low-security data are independent from initial values of high-security
+data~--- this is pure noninterference. Note that, unlike our logic, theirs does not attempt 
+to reason about declassification. 
+Some other differences between these IFC systems are:
+\begin{itemize}
+\item We allow pointer arithmetic, while they disallow it by using an object-oriented language.
+Pointer arithmetic adds significant complexity to information flow reasoning. In particular,
+their system uses a technique similar to our \ttt{mark\_vars} function for reasoning about
+conditional constructs, except that they syntactically search for all locations in both the store 
+and heap that might be modified within the conditional. With the arbitrary pointer arithmetic
+of our C-like language, it is not possible to syntactically bound all possible heap-writes, 
+so we require the additional semantic technique described in Section~\ref{noninterference}
+that involves enforcing a side condition on the bisimulation semantics.
+\item Our model of observable behavior provides some extra leniency in verification. Our logic
+allows some leaks to happen within the program state, so long as these leaks are not made 
+observable via an output command. In their logic (and many other IFC systems), the enforcement
+mechanism must prevent those leaks within program state from happening in the first place.
+Of course, we take this idea to the extreme when we move away from a specific program
+logic in Chapters~\ref{informal-chapter} and~\ref{methodology-chapter}.
+\end{itemize}
+
+Banerjee et al.\ \cite{banerjee08} develop an IFC system that specifies declassification policies
+through state predicates in basically the same way that we do. For example, they might have
+a (relational) precondition of ``$A(x \geq y)$,'' saying that two states agree on the truth
+value of $x \geq y$. This corresponds directly to a precondition of ``$x \geq y$'' in our system,
+and security guarantees for the two systems are both stated relative to the precondition.
+The two systems have very similar goals, but there are a number of significant differences
+in the basic setup that make the systems quite distinct:
+\begin{itemize}
+\item Their system does not attempt to reason about the program heap at all. They have some 
+high-level discussions about how one might support pointers in their setup, but there is 
+nothing formal.
+\item Their system enforces noninterference primarily through a type system (rather than a 
+program logic). The declassification policies, specified by something similar to a Hoare triple,
+are only used at specific points in the program where explicit ``declassify'' commands are 
+executed. A type system enforces pure noninterference for the rest of the program besides the 
+declassify commands. Their end-to-end security guarantee then talks about how the knowledge of
+an observer can only increase at those points where a declassify command is executed
+(a property called ``gradual release'', defined by Askarov and Sabelfeld~\cite{askarov07}). 
+Thus their security guarantee
+for individual declassification commands looks very similar to our version of noninterference,
+but their end-to-end security guarantee looks quite different. We do not believe that there
+is any comparable notion of gradual release in our system, as we do not have explicit
+program points where declassification occurs.
+\item Because they use a type system, their system must statically pick security labels
+for each program variable. This means that there is no notion of dynamically propagating
+labels during execution, nor is there any way to express our novel concept of conditional
+labels. As a result, the calendar example program of Section~\ref{logic} would not be
+verifiable in their system.
+\end{itemize}
+
+\begin{comment}
+Delimited Release~\cite{delimited} is an IFC system that allows certain prespecified
+expressions (called \emph{escape hatches}) to be declassified. For example, a declassification 
+policy for high-security variable $h$ might say that the expression $h\%2$ should be considered
+low security. Relaxed Noninterference~\cite{relaxed} uses a similar idea, but builds a lattice of
+semantic declassification policies, rather than syntactic escape hatches~--- e.g., $h$ would 
+have a policy of $\lambda x \such x\%2$. Our system can easily express any policy from these systems,
+using a precondition saying that some low-security data is equal to the escape hatch function 
+applied to the secret data.  Our strong security guarantee is identical to the formal guarantees of 
+both of these systems, saying that the high-security value will not affect the observable behavior as 
+long as the escape hatch valuation is unchanged.
+
+Relational Hoare Type Theory (RHTT)~\cite{rhtt} is a logic framework for verifying information-flow
+properties. It is based on a highly general relational logic. The system can be used to reason about 
+a wide variety of security-related
+notions, including declassification, information erasure, and state-dependent access control. One
+advantage of our program logic over RHTT is that we have fine-tuned our system for reasoning about 
+noninterference. A program verification in our logic
+requires a relatively small amount of work, since much of the noninterference proof is already handled
+by the framework. RHTT, on the other hand, is extremely general to the point that if you want to
+prove an information flow property on a program, you need to formulate
+the property as a relational type and manually prove that the program has that type. This has to be
+done for each program on an individual basis~--- there are no overarching security properties that
+hold for all verified programs.
+\end{comment}
+
+Jif~\cite{jif} is a practical IFC language built on top of Java. It employs the Decentralized
+Label Model~\cite{dlm} to enforce a static type system that controls security and integrity of 
+data in a decentralized environment.
+A decentralized label describes each user's access control policy for the data, and thus
+can viewed as an instance of our principal-parameterized observation function of
+Chapter~\ref{informal-chapter}. Because label checks occur throughout the various typing rules,
+there is a close relationship between Jif and the static, instrumented semantics of 
+our program logic. Declassifications in Jif are performed through an explicit declassify 
+command in the language, however, and no attempts are made to provide any formal 
+security guarantees in the presence of such declassifications.
+
+\begin{comment}
+Intransitive noninterference~\cite{mantel} is a declassification mechanism whereby certain specific 
+downward flows are allowed in the label lattice. The system formally verifies that a program obeys
+the explicitly-allowed flows. These special flows are intransitive~--- e.g., we might allow Alice 
+to declassify data to Bob and Bob to declassify to Charlie, but that does not imply that Alice is
+allowed to declassify to Charlie. The intransitive noninterference system is used to verify
+simple imperative programs; their language is basically the same as ours, except without the
+heap-related commands. One idea for future work is to generalize our state predicate $P$ into an
+action $G$ that precisely describes the transformation that a program is allowed to make on the  
+state. If we implemented this idea, it would be easy to embed the intransitive noninterference system. 
+The action $G$ would specify exactly which special flows are allowed (e.g., the data's label can
+be changed from Alice to Bob or from Bob to Charlie, but not from Alice to Charlie directly).
+Ideally, we would have a formal noninterference theorem in terms of $G$ that would give the same
+result as the formal guarantee in~\cite{mantel}.
+\end{comment}
+
+The language-based IFC systems mentioned above, as well as our own program logic, use static 
+reasoning. There are also many dynamic IFC systems (e.g.,~\cite{austin09,hritcu13,stefan11,yang12})
+that attempt to enforce security of a program during execution. Because dynamic
+systems are analyzing information flow at runtime, they will incur some overhead cost in
+execution time. Static IFC systems need not necessarily incur extra costs. Indeed, in our setup
+we have a ``true machine'' that executes on states with all labels erased (Figure~\ref{basesem}). 
+The security-aware
+machine is for reasoning purposes only; it will never be physically executed.

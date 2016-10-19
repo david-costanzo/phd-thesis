@@ -1,0 +1,101 @@
+\label{related-chapter}
+
+\section{Locality in Separation Logic}
+\label{related-bpsl}
+
+The definition of locality (or local action), which enables the frame
+rule, plays a critical role in Separation
+Logic~\cite{io00,reynolds02,yang:fossacs02}. Almost all versions of 
+Separation Logic~--- including their
+concurrent~\cite{brookes:concur04,ohearn:concur04,coy07},
+higher-order~\cite{birkedal05}, and relational~\cite{yang07} variants,
+as well as mechanized implementation (e.g., \cite{appel07})~--- have always used
+the same locality definition that matches the well-known Safety and
+Termination Monotonicity properties and the Frame
+Property~\cite{yang:fossacs02}. 
+
+In Chapter~\ref{bpsl-chapter}, we argued a case for strengthening the definition of locality 
+to enforce \emph{behavior preservation}. This means that the behavior of a
+program when executed on a small state is identical to the behavior when
+executed on a larger state~--- put another way, excess, unused state cannot have
+any effect on program behavior. We showed that this change can be made to have
+no effect on the usage of Separation Logic, and we gave multiple examples of
+how it simplifies reasoning about metatheoretical properties. 
+
+\paragraph{Determinism Constancy}
+One related work that calls for comparison is the property of
+``Determinism Constancy'' presented by Raza and Gardner~\cite{rg09}, which
+is also a strengthening of locality. While they use a slightly different notion 
+of action than we do, it can be shown that Determinism Constancy, when translated
+into our context (and ignoring divergence behaviors), is logically equivalent to:
+\begin{align*}
+\relate{\den{C}}{\sigma_0}{\sigma_0'} \land \sigma_0' \# \sigma_1 \Longrightarrow 
+  \sigma_0 \# \sigma_1 \land \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)}
+\end{align*}
+\noindent{}For comparison, we repeat our Forwards Frame Property here:
+\begin{align*}
+\relate{\den{C}}{\sigma_0}{\sigma_0'} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  \sigma_0' \# \sigma_1 \land \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)}
+\end{align*}
+While our strengthening of locality prevents programs from increasing state during
+execution, Determinism Constancy prevents programs from \emph{decreasing} state.
+The authors use Determinism Constancy to prove the same property regarding footprints
+that we proved in Section~\ref{ssec:footprint}. Note that, while behavior preservation
+does not imply Determinism Constancy, our concrete logic of Section~\ref{concrete} does
+have the property since it never decreases state (we chose to have the \freee{} command put the 
+deallocated cell back onto the free list, rather than get rid of it entirely).
+
+While Determinism Constancy is strong enough to prove the footprint property, it does
+not provide behavior preservation~--- an execution on a small state can still become
+invalid on a larger state. Thus it will not, for example, help in resolving the dilemma 
+of growing relations in the data refinement theory of~\cite{filipovic10}. Due to the lack of behavior 
+preservation, we do not expect the property to have a significant impact on the metatheory
+as a whole. Note, however, that there does not seem to be any harm in using \emph{both}
+behavior preservation and Determinism Constancy. The two properties together enforce that
+the area of memory accessible to a program be constant throughout execution.
+
+\paragraph{Module Reasoning}
+Besides our discussion of data refinement in
+Section~\ref{ssec:datarefinement}, there has been some previous work
+on reasoning about modules and their implementations within
+the context of Separation Logic. In~\cite{oyr04},
+a ``Hypothetical Frame Rule'' is used to allow modular reasoning when
+a module's implementation is hidden from the rest of the
+code. In~\cite{birkedal05}, a higher-order frame rule is used to allow
+reasoning in a higher-order language with hidden module or function
+code. However, neither of these works discuss relational reasoning
+between different modules. We are not aware of any relational logic
+for reasoning about modules.
+
+\ifextended
+Section~\ref{metatheory-security} discussed how behavior 
+preservation is fundamentally important for combining local
+reasoning with security verification; one interesting area
+for future work would be to formalize this relationship
+in the context of mCertiKOS. Currently, mCertiKOS uses a
+single monolithic datatype for abstract state. In the future,
+the framework could be altered to instead divide abstract
+state into minimal composable pieces. This would yield clea
+primitive specifications that only operate over the portion
+of abstract state needed by the primitive (e.g., the \ttt{get\_quota}
+specification would only take the \ttt{container} portion of abstract 
+state as input). Behavior preservation would then need to be
+explicitly enforced in order to \emph{soundly} and \emph{securely} combine 
+all of these ``small'' specifications into a single, system-wide guarantee.
+
+\begin{comment}
+Another direction for future work would be to define a
+behavior-preserving version of Concurrent Separation Logic that has
+the same inference rules as standard CSL. The commands that acquire
+and release locks should be able to be expressed in a
+behavior-preserving fashion by including both local and shared state
+in the underlying state model. A lock acquire will move memory from
+the shared state into the local state, while a lock release will move
+it from local into shared. Neither command requires an increase in
+total state. The model could get quite interesting if we allow threads
+to allocate memory. One possible way to implement this might be to
+assign a separate free list to each thread. Another way might be to
+use a single free list, and, at any point in execution, we consider
+the free list to be owned by the currently-executing thread.
+\end{comment}
+\fi
