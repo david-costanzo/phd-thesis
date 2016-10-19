@@ -1,0 +1,117 @@
+\newif\ifextended\extendedtrue
+
+\documentclass[letterpaper,12pt,nonatbib]{yalephd}
+
+\usepackage{graphicx}
+\usepackage{dcolumn}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{appendix}
+\usepackage{comment}
+\usepackage{geometry}
+\usepackage{cite}
+\usepackage{subfigure}
+\usepackage{alltt}
+\usepackage{natbib}
+\usepackage{stackrel}
+\usepackage{epsfig}
+\usepackage{url}
+\usepackage{stmaryrd}
+\usepackage{mathpartir}
+\include{bnf}
+
+% Draft editing notes
+\usepackage{ifthen}
+\usepackage[usenames,dvipsnames]{color}
+\newboolean{include-notes}
+\setboolean{include-notes}{true}
+% http://en.wikibooks.org/wiki/LaTeX/Colors
+\DeclareRobustCommand{\hanote}[1]{\ifthenelse{\boolean{include-notes}}%
+ {\textcolor{red}{\textbf{HA: #1}}}{}}
+
+% Define a few shortcuts
+ \newcommand{\secref}[1]{Section \ref{sec:#1}}
+ \newcommand{\figref}[1]{Figure \ref{fig:#1}}
+ \newcommand{\chapref}[1]{Chapter \ref{#1}}
+
+
+
+
+
+\bibliographystyle{plain}
+
+\begin{document}
+
+% Need to define title before the abstract.
+\title{Formal End-to-End Verification of Information-Flow Security for Complex Systems}
+\author{David Costanzo}
+\advisor{Zhong Shao}
+\date{December 2016}
+
+% All the stuff at the front of your thesis.
+\frontmatter
+
+\include{abstract}
+
+
+\maketitle
+\makecopyright{2016}
+\tableofcontents
+\listoffigures
+%\listoftables
+
+\chapter{Acknowledgements}
+\input{ack}
+
+% Starts proper arabic numbering of pages and chapters.
+\mainmatter
+
+
+\include{local}
+
+\chapter{Introduction}
+\input{intro}
+
+\chapter{Locality and Behavior Preservation}
+\input{locality}
+\input{concrete}
+\input{abslogic}
+\input{metatheory}
+
+\chapter{Security via Program Logic}
+\input{semantics-post}
+\input{logic-post}
+\input{noninterference-post}
+
+\chapter{Security Reasoning over Specifications}
+\input{pldi/informal}
+\input{pldi/policies}
+
+\chapter{Simulations and Security Propagation}
+\input{pldi/methodology}
+
+\chapter{Security Overview of mCertiKOS}
+\input{pldi/casestudy-def}
+
+\chapter{Proving Security of mCertiKOS}
+\input{pldi/casestudy-proof}
+
+\chapter{New Feature: Virtualized Time}
+\input{timing}
+
+\chapter{Assumptions, Limitations, and Future Work}
+\input{pldi/limitations}
+
+\chapter{Related Work and Conclusions}
+\input{related-bpsl}
+\input{related-ddifc}
+\input{pldi/related}
+
+\backmatter
+
+\bibliography{ifc,refs}
+
+\end{document}
