@@ -1,0 +1,534 @@
+\section{Noninterference}
+\label{noninterference}
+
+Finally, we can now discuss how we formally prove our program logic's security guarantee.
+Much of the work has already been done through careful design of the security-aware semantics and
+the inference rules of the program logic. The fundamental idea is that we can find a bisimulation
+relation for our \lo{}-context (i.e., pc label is \lo{}) instrumented semantics. This relation 
+will guarantee that two executions operate in lock-step, always producing the same program 
+continuation and output.
+
+The bisimulation relation we will use is called \emph{observable equivalence}. It intuitively says 
+that the low-security portions of two states are identical; the relation is commonly used in 
+many IFC systems as a tool for proving noninterference. In our system, states $\sigma_1$ and $\sigma_2$ 
+are observably equivalent if: (1) they contain equal values at all locations that are present and 
+\lo{} in both states; and (2) the presence and labels of all store variables are the same in both
+states. This may seem like a rather odd notion of equivalence (in fact, it is not even transitive, so
+``equivalence'' is a misnomer here)~--- two states can be observably equivalent even if some heap
+location contains \hi{} data in one state and \lo{} data in the other. To see why we need to define
+observable equivalence in this way, consider a heap-write command $[x]:=E$ where $x$ is a \hi{}
+pointer. If we vary the value of $x$, then we will end up writing to two different locations in the 
+heap. Suppose we write to location 100 in one execution and location 200 in the other. Then
+location 100 will contain \hi{} data in the first execution (as the \hi{} pointer taints the 
+value written), but it may contain \lo{} data in the second since we never wrote to it. Thus we design 
+observable equivalence so that this situation is allowed.
+
+The following definitions describe observable equivalence formally:
+
+\vspace{2mm}
+\begin{definition}[Observable Equivalence of Stores]
+Suppose $s_1$ and $s_2$ are variable stores. We say that they are observably equivalent, written
+$s_1 \sim s_2$, if, for all program variables $x$:
+\begin{itemize}
+\item If $s_1(x) = \none{}$, then $s_2(x) = \none{}$.
+\item If $s_1(x) = \some{(v_1,\hi{})}$, then $s_2(x) = \some{(v_2,\hi{})}$ for some $v_2$.
+\item If $s_1(x) = \some{(v,\lo{})}$, then $s_2(x) = \some{(v,\lo{})}$.
+\end{itemize}
+\end{definition}
+
+\vspace{2mm}
+\begin{definition}[Observable Equivalence of Heaps]
+Suppose $h_1$ and $h_2$ are heaps. We say that they are observably equivalent, written
+$h_1 \sim h_2$, if, for all natural numbers $n$:
+\begin{itemize}
+\item If $h_1(n) = \some{(v_1,\lo{})}$ and $h_2(n) = \some{(v_2,\lo{})}$, then $v_1 = v_2$.
+\end{itemize}
+\end{definition}
+
+We say that two states are observably equivalent (written $\sigma_1 \sim \sigma_2$) when
+both their stores and heaps are observably equivalent. Given this definition, we define
+a convenient relational denotational semantics for state assertions as follows:
+\[(\sigma_1, \sigma_2) \in \denb{P} \iff \sigma_1 \in \den{P} \land \sigma_2 \in \den{P} \land \sigma_1 \sim \sigma_2\]
+
+In order to state noninterference cleanly, it helps to define a ``bisimulation semantics''
+consisting of the following single rule (the side condition will be discussed below):
+\begin{mathpar}
+\inferrule*
+{\pconfig{\sigma_1}{C}{K} \pstep{\lo}{o} \pconfig{\sigma_1'}{C'}{K'} \\
+\pconfig{\sigma_2}{C}{K} \pstep{\lo}{o} \pconfig{\sigma_2'}{C'}{K'} \\
+\text{(side condition)}}
+{\pconfigb{\sigma_1}{\sigma_2}{C}{K} \pstep{}{} \pconfigb{\sigma_1'}{\sigma_2'}{C'}{K'}}
+\end{mathpar}
+Note that this bisimulation semantics operates on configurations consisting of a \emph{pair} 
+of states and a program. With this definition, we can split noninterference into the 
+following progress and preservation properties.
+
+\begin{thm}[Progress]
+Suppose we derive $\judg{\lo}{P}{C}{Q}$ using our program logic. For any 
+$(\sigma_1,\sigma_2) \in \denb{P}$, suppose we have
+\[\pconfigb{\sigma_1}{\sigma_2}{C}{K} \psteps{}{} \pconfigb{\sigma_1'}{\sigma_2'}{C'}{K'},\]
+where $\sigma_1' \sim \sigma_2'$ and $(C',K') \neq (\skp,[])$. Then there exist $\sigma_1''$,
+$\sigma_2''$, $C''$, $K''$ such that
+\[\pconfigb{\sigma_1'}{\sigma_2'}{C'}{K'} \pstep{}{} \pconfigb{\sigma_1''}{\sigma_2''}{C''}{K''}\]
+\end{thm}
+
+\begin{thm}[Preservation]
+Suppose we have $\sigma_1 \sim \sigma_2$ and
+$\pconfigb{\sigma_1}{\sigma_2}{C}{K} \pstep{}{} \pconfigb{\sigma_1'}{\sigma_2'}{C'}{K'}$.
+Then $\sigma_1' \sim \sigma_2'$.
+\end{thm}
+
+For the most part, the proofs of these theorems are relatively straightforward. Preservation
+requires proving the following two simple lemmas about \hi{}-context executions:
+\begin{enumerate}
+\item \hi{}-context executions never produce output.
+\item If the initial and final values of some location differ across a \hi{}-context execution,
+then the location must have a \hi{} label in the final state.
+\end{enumerate}
+
+There is one significant difficulty in the proof that requires discussion. If $C$ is a 
+heap-read command $x:=[E]$, then Preservation does not obviously hold. The reason for this
+comes from our odd definition of observable equivalence; in particular, the requirements
+for a heap location to be observably equivalent are weaker than those for a store variable.
+Yet the heap-read command is copying directly from the heap to the store. In more concrete
+terms, the heap location pointed to by $E$ might have a \hi{} label in one state and \lo{}
+label in the other; but this means $x$ will now have different labels in the two states,
+violating the definition of observable equivalence for the store.
+
+We resolve this difficulty via the side condition in the bisimulation semantics. The side
+condition says that the situation we just described does not happen. More formally, it
+says that if $C$ has the form $x:=[E]$, then the heap location pointed to by $E$ in 
+$\sigma_1$ has the same label as the heap location pointed to by $E$ in $\sigma_2$.
+
+This side condition is sufficient for proving Preservation. However, we still need to show
+that the side condition holds in order to prove Progress. This fact comes from induction over the specific
+inference rules of our logic. For example, consider the (READ) rule from Section~\ref{logic}:
+\begin{mathpar}
+\inferrule*[right=(READ)]
+{P \Rightarrow \ttt{lbl}(E) = l_1 \\
+P \Rightarrow E \mapsto (n,l_2)}
+{\judg{l}{P}{x:=[E]}{P \backslash x \land x = n \land x.\ttt{lbl} = l_1 \sqcup l_2 \sqcup l}}
+\end{mathpar}
+In order to use this rule, we are required to show that the precondition implies
+$E \mapsto (n,l_2)$. Since both states $\sigma_1$ and $\sigma_2$ satisfy the precondition,
+we see that the heap locations pointed to by $E$ both have label $l_2$, and so the
+side condition holds. Note that the side condition holds even if $l_2$ is a logical variable 
+rather than a constant.
+
+In order to prove that the side condition holds for \emph{every} verified
+program, we need to show it holds for all inference rules involving a heap-read command.
+In particular, this means that no heap-read rule in our logic can have a precondition
+that only implies $E \mapsto \_$.
+
+Now that we have the Progress and Preservation theorems, we can easily combine them to
+prove the overall noninterference theorem for our instrumented semantics:
+
+\begin{thm}[Noninterference, Instrumented Semantics]
+Suppose we derive $\judg{\lo}{P}{C}{Q}$ using our program logic. Pick any state
+$\sigma_1 \in \den{P}$, and consider changing the values of any \hi{} data in
+$\sigma_1$ to obtain some $\sigma_2 \in \den{P}$. Suppose, in the instrumented
+semantics, we have
+\[\pconfig{\sigma_1}{C}{[]} \psteps{\lo}{o_1} \pconfig{\sigma_1'}{\skp}{[]}\]
+and
+\[\pconfig{\sigma_2}{C}{[]} \psteps{\lo}{o_2} \pconfig{\sigma_2'}{\skp}{[]}.\]
+Then $o_1 = o_2$.
+\end{thm}
+
+Finally, we can use the results from Section~\ref{semantics} along with the
+safety guaranteed by our logic to prove the final, end-to-end noninterference
+theorem:
+
+\begin{thm}[Noninterference, True Semantics]
+Suppose we derive $\judg{\lo}{P}{C}{Q}$ using our program logic. Pick any state
+$\sigma_1 \in \den{P}$, and consider changing the values of any \hi{} data in
+$\sigma_1$ to obtain some $\sigma_2 \in \den{P}$. Suppose, in the true semantics,
+we have
+\[\confi{\bar{\sigma}_1}{C} \psteps{}{o_1} \confi{\tau_1}{\skp}\]
+and
+\[\confi{\bar{\sigma}_2}{C} \psteps{}{o_2} \confi{\tau_2}{\skp}.\]
+Then $o_1 = o_2$.
+\end{thm}
+
+
+\section{Problems with the Program Logic Approach}
+\label{logic-problems}
+
+The program logic presented in this chapter is a convenient tool for formally
+proving the security of a C-like program with respect to a detailed and general
+policy. The calendar example program of Figure~\ref{calverification} shows that 
+the logic is significantly more powerful than many previous information-flow
+tracking frameworks, as it supports clean policy specification using conditional 
+labels, and it exploits the power of Hoare Logic to perform fine-grained
+reasoning on an if statement that branches upon conditionally-labeled data.
+
+The program logic approach is not perfect, however. In the following, we will
+discuss various suboptimal aspects of using a program logic to verify security.
+
+\paragraph{Language-Specific}
+In order to define logical inference rules for a program, we must have a
+clear, formal definition of the programming language being used. We choose
+a toy C-like language here that is simple enough to formally specify, but
+general enough to easily extend to handle many standard C features.
+Nevertheless, the language is fundamentally bound to a C-level memory model
+consisting of program variable store and global memory heap, as well as
+structured control flow (if-then-else statements and while loops, as opposed to
+labels and goto statements). This means that there is no easy way to
+adapt the program logic to support higher-level features such as high-order
+functions, or lower-level features such as unstructured jumps in assembly code. 
+The latter problem is particularly of concern for the ultimate goal of
+this dissertation, since real-world systems
+sometimes do require reasoning directly about assembly code. For
+example, the context switch operation of an OS kernel must always be
+written directly in assembly since, after restoring registers, it must long 
+jump to the location of a process's saved code pointer. The C language and
+memory model are too high level to directly write code that performs such
+a jump. Our program logic therefore cannot be used to prove anything about
+the context switch implementation within an OS kernel.
+
+\paragraph{Access to Code Details}
+As a prerequisite to using a program logic, one must of course have direct 
+access to the code in question. This could be a problem in real-world
+systems if, for example, the creator of the system would like to outsource
+the security verification to a third party. The creator would ideally wish
+to avoid leaking company secrets by revealing all details of the system's 
+implementation. Instead, it would be far more preferable
+to only provide the third party with a formal, high-level specification of
+the system's functionality. Furthermore, this strategy would have the additional
+standard benefit of abstraction: if the low-level code of the system were changed 
+without affecting the high-level specification, then the security verification
+would not need to be redone.
+
+\paragraph{Functional Correctness vs Security}
+Our program logic combines functional correctness verification with security
+verification. While this can certainly be viewed positively, since it allows
+for security to be proved in a single pass through the code, it also has
+the potential to conflate orthogonal aspects of the verification. For example,
+we discussed above how we interpret the verified precondition $P$ as a security
+policy; the precondition also serves as a safety specification, however, saying
+on which machine states the program executes without getting stuck. We cannot
+distinguish between which aspects of $P$ refer only to security, and which 
+aspects refer only to safety. For example, if $P$ does not happen to mention 
+anything about security labels, then it really says nothing of interest 
+regarding the program's security. It might be more desirable to completely
+separate the verification of the program's functionality from the
+verification of its security, as this could potentially yield a clearer
+and more precise description of the program's security policy.
+
+\paragraph{Incompleteness}
+While we proved that our program logic is sound with respect to noninterference,
+it is certainly not complete~--- there are plenty of programs that are 
+noninterfering under some precondition, but cannot be verified in our 
+logic using that precondition. For example, if we slightly modify the program of 
+Figure~\ref{calexample} by changing line 8 to output $i$,
+then the program will always output all the numbers from 0 to 63 in order, regardless of
+values of high-security data. We would not be able to verify the program, however, because
+the pc label is \hi{} at line 8 and thus disallows any output. In the POST 
+paper~\cite{costanzo-ddifc}, 
+we mention an informal observation: in our experience, it is always possible to rewrite a 
+secure-but-unverifiable program in such a way that it produces the same output and 
+becomes verifiable. For the altered calendar example just mentioned, it suffices to 
+rewrite the program to simply print out the numbers 0 through 63 (without branching on 
+elements in Alice's calendar).
+
+A rather more complex example of this observation can be obtained by swapping 
+lines 6 and 8 in the code of Figure~\ref{calexample}. This program prints out all 
+the time slots that are \emph{not} free. Changing any (nonzero) event to any other 
+(nonzero) event will not change this output, so the program is still secure with 
+respect to Alice's policy. It is not verifiable for the same reason as before~--- output 
+is disallowed at line 8. Nevertheless, this program can be rewritten in the following 
+way (assume we add to the precondition that we have allocated a 64-element array filled 
+with \lo{} 0's starting at location $B$, which will be used for temporary scratch work):
+\begin{alltt}
+1  i := 0;
+2  while (i < 64) do
+3      x := [A+i];
+4      if (x = 0) then [B+i] := 1 else skip;
+5      i := i+1;
+6  i := 0;
+7  while (i < 64) do
+8      x := [B+i];
+9      if (x = 0) then output i else skip;
+10     i := i+1;
+\end{alltt}
+The ability to rewrite these safe-but-unverifiable programs leads to some
+interesting ideas. The most direct idea is that it might be fruitful to
+pursue a formal proof of semi-completeness of the program logic, saying that 
+for any secure program $C$, there exists a program $C'$ with the same behavior
+(i.e., mapping from initial states to output produced) as $C$, and $C'$ can
+be verified secure using the inference rules of our logic. An even more interesting
+idea, however, is to abstract away from the individual programs $C$ and $C'$
+entirely. Instead of using inference rules to verify $C$, what if we could first 
+formally abstract $C$ into a specification of its behavior $S$, and then simply prove
+that $S$ is secure? If we could successfully accomplish this, then this
+incompleteness issue would no longer be relevant.
+
+\paragraph{Conclusion}
+It should be clear by now that all of these problems are steering us toward
+a particular solution. In the coming chapters, we will present a new
+methodology for security verification, where we first abstract a program
+into a high-level specification, in a manner that is completely independent 
+from security concerns. Then we define and prove a security policy over the 
+specification only. The methodology is fairly independent from program language
+specifics, it hides low-level details of code, and it completely separates
+functional correctness concerns from security concerns. Crucially (and perhaps
+surprisingly), our methodology successfully guarantees that if a program's 
+specification is proved secure, then the program itself (i.e., the implementation)
+will always execute in a secure fashion.
+
+\begin{comment}
+\textbf{Case 2}: $C = \condfull{B}{C_t}{C_f}$. Since $\sigma_1 \sim \sigma_2$, $B$ has the same label 
+in $\sigma_1$ and $\sigma_2$. We will perform case analysis on that label.
+
+For the first case, suppose $B$ is \lo{} in $\sigma_1$ and $\sigma_2$. Then each variable in $B$ is \lo{}
+in those states, and so they also have the same values. Hence $\den{B}\sigma_1$ = $\den{B}\sigma_2$.
+If $B$ is \ttt{true} in those states, then both executions used the (IF-TRUE) rule. Therefore,
+$o_1 = o_2 = []$, $C_1 = C_2 = C_t$, and $K_1 = K_2 = K$. Furthermore, $\sigma_1' = \sigma_1$ and
+$\sigma_2' = \sigma_2$, meaning that $\sigma_1' \sim \sigma_2'$. If $B$ is \ttt{false} in those
+states, then both executions used the (IF-FALSE) rule, and the reasoning is identical (except that
+$C_1 = C_2 = C_f$).
+
+Now suppose $B$ is \hi{} in $\sigma_1$ and $\sigma_2$. Then both executions used the (IF-HI) rule (the
+other rules are not applicable because the pc label is \lo{} here). Hence $o_1 = o_2 = []$, $C_1 = C_2 = \skp$,
+and $K_1 = K_2 = K$. We need to prove that $\sigma_1' \sim \sigma_2'$. We will use a lemma here, although
+we omit the proof of the lemma as it is very simple and tedious. The lemma says that, if we execute the
+$(\hi{},b,b')$-semantics to take some state $\sigma$ to $\sigma'$, then any variable or heap location in
+$\sigma'$ whose value is different than in $\sigma$ (or which is not present at all in $\sigma$) must have 
+a \hi{} label in $\sigma'$. This is simply a formal statement of the intuitive idea that our semantics uses
+the pc label to taint any data it writes. With this lemma, it is easy to see that the heaps of $\sigma_1'$
+and $\sigma_2'$ are observably equivalent: if we pick a heap location $n$ that is present and \lo{} in both
+heaps, then the $(\hi{},b,b')$-semantics could not have written anything into $n$ according to the lemma.
+Thus the value and label of $n$ is the same in $\sigma_1'$ and $\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$,
+as well as in $\sigma_2'$ and $\ttt{mark\_vars}(\sigma_2,\condfull{B}{C_t}{C_f})$. Since \ttt{mark\_vars}
+does not touch heap locations, and $\sigma_1 \sim \sigma_2$, this gives us the desired result.
+
+Now we will show that the stores of $\sigma_1'$ and $\sigma_2'$ are observably equivalent. If variable $x$
+is not present in $\sigma_1'$, then it is also not present in $\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$
+since no command can delete a variable from the store. Hence it is not present in $\sigma_1$, and since
+$\sigma_1 \sim \sigma_2$, it is also not present in $\sigma_2$. Now, $x$ cannot be present in
+$\ttt{mark\_vars}(\sigma_2,\condfull{B}{C_t}{C_f})$ or else it would also have been present in
+$\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$. Finally, we need another lemma here that says
+that if a command $C$ adds a new variable to the store across its execution, then that variable must be 
+an element of $\ttt{modifies}(C)$. This means that $x$ cannot be present $\sigma_1'$ or else it
+would have been present in $\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$ as well. Next, suppose
+that $x$ is present and \hi{} in $\sigma_1'$. If $x$ is not present in 
+$\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$, then the lemma above tells us that $x$ is in
+$\ttt{modifies}(\condfull{B}{C_t}{C_f}))$. But this would mean that it is in fact present in
+$\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$~--- a contradiction. Hence $x$ is present
+in $\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$. By similar reasoning, we can see that
+$x$ must be \hi{} in that state. Now, if $x$ is not present in $\sigma_1$, then it is an element
+of $\ttt{modifies}(\condfull{B}{C_t}{C_f}))$. This would mean it is present and \hi{} in
+$\ttt{mark\_vars}(\sigma_2,\condfull{B}{C_t}{C_f})$, which in turn means it is present and \hi{}
+in $\sigma_2'$. Otherwise, if $x$ is present in $\sigma_1$, then we have the same reasoning if it 
+is \lo{}. If it is \hi{} in $\sigma_1$ instead, then it is also present and \hi{} in $\sigma_2$
+since $\sigma_1 \sim \sigma_2$. Thus it is \hi{} in $\ttt{mark\_vars}(\sigma_2,\condfull{B}{C_t}{C_f})$
+and therefore in $\sigma_2'$ as well. Finally, if $x$ is present and \lo{} in $\sigma_1'$,
+then it is also present and \lo{} in $\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$, which
+means it is \lo{} in $\sigma_1$. Since $\sigma_1 \sim \sigma_2$, $x$ is also \lo{} in $\sigma_2$.
+$x$ therefore cannot be \hi{} in $\ttt{mark\_vars}(\sigma_2,\condfull{B}{C_t}{C_f})$, or else it
+would also have been \hi{} in $\ttt{mark\_vars}(\sigma_1,\condfull{B}{C_t}{C_f})$. Thus $x$
+is present in $\sigma_2'$. If $x$ were \hi{} in $\sigma_2'$, then another lemma would tell us that 
+it must be in $\ttt{modifies}(\condfull{B}{C_t}{C_f}))$, which leads to a contradiction. Thus
+we finally have that $x$ is present and \lo{} in $\sigma_2'$. We can use the same reasoning as we
+did for showing observable equivalence of the heap to prove that $x$ has the same value in $\sigma_1'$
+and $\sigma_2'$.
+\end{proof}
+\end{comment}
+
+\begin{comment}
+\subsection{Covert Channels}
+
+Now that we have defined our noninterference property, we should briefly mention some of its limitations.
+It is sometimes possible for information to be leaked without explicitly calling an output command~--- such
+a leak is called a covert channel. Three major covert channels involve time, termination, and 
+exceptions. 
+
+If an attacker has a way to relate outputs with the time at which they are printed, then these
+times will violate our noninterference theorem. We made an active choice to ignore timing channels in our 
+system by not allowing time to be observable. Timing information flow is beyond the scope of this paper, 
+and is a challenging-enough problem that it is often considered a separate field.
+
+As for termination leaks, our noninterference theorem is termination insensitive. This means that
+we do not model divergence as an observable behavior. As a result, it is possible to leak information
+through nontermination. Note that our noninterference theorem only makes a claim about the outputs if
+we have two terminating executions. We say nothing about outputs of nonterminating executions.
+It is certainly possible that, from observably equivalent states, one execution enters an infinite loop 
+(without outputting anything), while the other continues to output data and then terminates normally. 
+A termination-sensitive version of our system is planned for future work.
+
+Exceptions, or faulting, can also open a covert channel. Our system is thankfully immune to such a channel,
+however. This is because when we verify a program, our soundness theorem guarantees that executions will 
+never get stuck or fault. This is a significant advantage that most statically-enforced IFC systems have
+over dynamically-enforced ones.
+\end{comment}
+
+\begin{comment}
+Besides the issue of safety, there is another, more subtle problem. Because our definition of noninterference is
+termination-sensitive, it turns out that the conditional constructs (if statements and while loops) need an additional 
+restriction regarding termination. Consider the following program:
+\[(\condfull{x=0}{\skp}{(\while{\ttt{true}}{\skp})}); \out{0}\]
+There is no direct assignment that reads from $x$, and there is no implicit flow from $x$ within the if statement.
+Nevertheless, the output of this program does depend on $x$: if $x$ is 0, then the program outputs 0; otherwise,
+it does not output anything.
+
+To solve this problem, we assume a new property that will be guaranteed by our program logic. This property says
+that, whenever the bisimulation machine simulates a step (in two executions) that enters the body of a conditional 
+construct under a high context, then either the body must terminate in both executions, or it must diverge in both 
+executions. For a fully formalized definition,
+see the extended technical report~\cite{ddifctr}. Note that verifying this property in general is undecidable (as
+it involves deciding whether an execution halts), but we can have our program logic guarantee it by incorporating 
+both \emph{partial correctness} and \emph{total correctness} reasoning. This will be explained in detail in 
+Section~\ref{logic}.
+
+In addition to requiring that the divergence behavior of the body of conditional constructs is the same in both
+executions (when entering a high context), we also must assume that either both executions enter a high context,
+or neither execution does. Another way to put this is that whenever the bisimulation machine evaluates the label
+of a boolean expression (which happens upon entrance to the body of a conditional construct), the valuation is 
+the same in both executions. This property will be guaranteed by our program logic in a straightforward way.
+We will refer to this property along with the previous one as $\exok{\sigma_1}{\sigma_2}{C}{K}$.
+\end{comment}
+
+\begin{comment}
+We now have only one minor modification left to make before being able to prove noninterference. We will add a 
+requirement regarding primitive commands in order to rule out particularly problematic ones. One example of
+a primitive that will be prohibited is $x:=[[y]]$ (i.e., a double dereference). It is not difficult to devise
+a situation where this command breaks noninterference; we omit presenting an example here because it is really
+not that interesting, since it is extremely standard practice in the programming language and Separation Logic 
+literature to prohibit a command like this anyway (a double dereference can always be trivially simulated by
+two commands which perform each dereference individually). To rule out these problematic commands, we assume that
+each primitive command comes with a state-independent set \rvars{} (read variables) of typed locations which is always a subset
+of the read set of the command in any state. Furthermore, if the values of all locations in \rvars{} are determined, 
+then the read and write sets of the command are also determined. For example, for the command $x:=[y+z]$, the
+set of read variables is $\{y,z\}$, as their values determine the read set (and the write set of this command is
+always $\{x\}$, regardless of state). This restriction on primitive commands does not rule out any command that is
+normally supported in the literature. Note that our system can support many nonstandard commands, such as
+$[v+w]:=[x+y]+[z]$.
+
+
+\subsection{Proof}
+
+Before we can work out the proof, we first need to give the definition of observable equivalence. There are
+many possibilities for what it could mean for two states to be observably equivalent, but we found only one
+that we could make sound with respect to noninterference. We say that $\obseq{(s_1,h_1)}{(s_2,h_2)}$ if the following
+two properties hold:
+\begin{enumerate}
+\item For each store variable $v$, the label of $v$ is the same in $s_1$ and $s_2$, and the value is also the same
+if the label is \lo{}.
+\item For each heap location $w$, if $w$ exists and is \lo{} in both $h_1$ and $h_2$, then it has the same value as well.
+\end{enumerate}
+
+We will now prove operational noninterference in the standard way that one proves any type safety theorem: by dividing it
+into progress and preservation lemmas. Define $\biok{\sigma_1}{\sigma_2}{C}{K}$ to mean that $\obseq{\sigma_1}{\sigma_2}$,
+$\safe{\pconfig{\sigma_1}{C}{K}}$, and $\safe{\pconfig{\sigma_2}{C}{K}}$ (one can think of it as saying that the bisimulation
+configuration is ``well-typed''). The progress lemma says that if \ttt{ok} holds on the current non-halt configuration 
+(i.e., $C$ is not $\skp$ or $K$ is not $[]$), then the bisimulation machine can take a step. The preservation lemma 
+says that if \ttt{ok} holds on the current configuration and the bisimulation machine takes a step, then \ttt{ok} also 
+holds on the resulting configuration. Thus the two lemmas together clearly imply operational noninterference.
+
+\vspace{2mm}
+\begin{lem}[Progress]
+\begin{align*}
+\forall \cf \such \biokt{}(\cf) \land \lnot \ttt{halt}(\cf) \Longrightarrow \exists \cf' \such \cf \bstep \cf'
+\end{align*}
+\end{lem}
+
+\begin{lem}[Preservation]
+\begin{align*}
+\forall \cf,\cf' \such \biokt{}(\cf) \land \cf \bstep \cf' \Longrightarrow \biokt{}(\cf')
+\end{align*}
+\end{lem}
+
+\begin{proof}[Progress]
+Suppose the bisimulation machine is in the non-halt configuration $\pconfigb{\sigma_1}{\sigma_2}{C}{K}$.
+Let $\sigma_1 = (s_1,h_1)$ and $\sigma_2 = (s_2,h_2)$. Since we already know that $\pconfig{\sigma_1}{C}{K}$ 
+and $\pconfig{\sigma_2}{C}{K}$ are safe in the low machine, proving progress amounts to proving that the two 
+executions output the same thing, and that their resulting configurations after taking a step in the low machine 
+have the same program (both the block and the continuation). We will now do case analysis on $C$; note that the 
+only case when output is produced is when $C = \out{E}$.
+
+\textbf{Case 1}: $C = \skp$. Since the bisimulation machine is in a non-halt configuration,
+$K$ is of the form $C'::K'$. Thus both configurations step to the program $(C',K')$.
+
+\textbf{Case 2}: $C = \out{E}$. Both configurations step to the program $(\skp,K)$. The outputs
+produced are the same because of the facts that $\den{E}s_1 = (n_1,\lo)$, 
+$\den{E}s_2 = (n_2,\lo)$, and $s_1$ and $s_2$ are observably equivalent. 
+These facts together imply that $n_1$ and $n_2$ are indeed equal, because $\den{E}$ computes the least 
+upper bound of all variable labels in $E$ to be \lo{} (meaning that all of the variables are \lo), and all
+\lo{} variables have the same value in the two states.
+
+\textbf{Case 3}: $C = x:=E$. Both configurations step to the program $(\skp,K)$.
+
+\textbf{Case 4}: $C = x:=[E]$. Both configurations step to the program $(\skp,K)$.
+
+\textbf{Case 5}: $C = [E]:=E'$. Both configurations step to the program $(\skp,K)$.
+
+\textbf{Case 6}: $C = \seq{C_1}{C_2}$. Both configurations step to the program $(C_1,C_2::K)$.
+
+\textbf{Case 7}: $C = \condfull{B}{C_1}{C_2}$. Note that $\den{B}$ has the same label in both $\sigma_1$
+and $\sigma_2$ because the individual store variables all have the same label in the two states. If the label
+of $\den{B}$ is \lo{}, then it also has the same boolean value in both states (by similar reasoning to Case 2), 
+and so the two configurations do indeed step to the same program. If the label is \hi{}, then, since we already 
+know both executions can safely take a step in the low machine, they both step to $(\skp,K)$.
+
+\textbf{Case 8}: $C = \while{B}{C}$. Same argument as Case 7.
+\end{proof}
+
+\begin{proof}[Preservation]
+Suppose the bisimulation machine takes a single step from $\pconfigb{\sigma_1}{\sigma_2}{C}{K}$
+to $\pconfigb{\sigma_1'}{\sigma_2'}{C'}{K'}$, and \biokt{} holds on the first configuration.
+Then the low machine steps from $\pconfig{\sigma_1}{C}{K}$ to $\pconfig{\sigma_1'}{C'}{K'}$ and
+from $\pconfig{\sigma_2}{C}{K}$ to $\pconfig{\sigma_2'}{C'}{K'}$, producing identical outputs.
+Note that two of the three components of \biokt{} hold trivially on the second bisimulation-machine 
+configuration, because they are properties on the entire future execution. Thus proving preservation amounts 
+to proving that $\sigma_1'$ and $\sigma_2'$ are observably equivalent. We will once again do case analysis
+on $C$.
+
+\textbf{Case 1}: $C = \skp$. Both executions must have used the \ttt{(SKIP)} rule, so $\sigma_1' = \sigma_1$
+and $\sigma_2' = \sigma_2$. Hence $\obseq{\sigma_1'}{\sigma_2'}$.
+
+\textbf{Case 2}: $C = \out{E}$. Both executions must have used the \ttt{(OUTPUT)} rule, so 
+$\obseq{\sigma_1'}{\sigma_2'}$ as the states are unchanged.
+
+\textbf{Case 3}: $C = x:=E$. Both executions used the (ASSGN) rule with $l' = \lo{}$. Consider any \lo{}
+location/variable $w$ in $\sigma_1'$. If $w$ is not $x$, then $w$ exists and has the same value/label in 
+$\sigma_1$. Since $\obseq{\sigma_1}{\sigma_2}$, $w$ is also \lo{} and has the same value in $\sigma_2$, 
+and hence in $\sigma_2'$. On the other hand, if $w$ is $x$, then $\den{E}s_1$ must be \lo{}. Thus 
+$\den{E}s_1 = \den{E}s_2$, and so the same value (and label) is written to $x$ in both executions. Hence
+$\obseq{\sigma_1'}{\sigma_2'}$.
+
+\textbf{Case 4}: $C = x:=[E]$. Both executions used the (READ) rule with $l' = \lo{}$. Consider any \lo{}
+location/variable $w$ in $\sigma_1'$. If $w$ is not $x$, then $w$ exists and has the same value/label in 
+$\sigma_1$. Since $\obseq{\sigma_1}{\sigma_2}$, $w$ is also \lo{} and has the same value in $\sigma_2$, 
+and hence in $\sigma_2'$. On the other hand, if $w$ is $x$, then $\den{E}s_1$ must be \lo{}, and the heap
+location in $h_1$ located at $\den{E}s_1$ must also be \lo{}. Thus $\den{E}s_1 = \den{E}s_2$, and that
+heap location also exists and is \lo{} in $h_2$. Hence the same value (and label) is written to $x$ in both
+executions, and so $\obseq{\sigma_1'}{\sigma_2'}$.
+
+\textbf{Case 5}: $C = [E]:=E'$. Both executions used the (WRITE) rule with $l' = \lo{}$. Consider any \lo{}
+location/variable $w$ in $\sigma_1'$. If $w$ is not $\den{E}s_1$, then $w$ exists and has the same value/label in 
+$\sigma_1$. Since $\obseq{\sigma_1}{\sigma_2}$, $w$ is also \lo{} and has the same value in $\sigma_2$, 
+and hence in $\sigma_2'$. On the other hand, if $w$ is $x$, then $\den{E}s_1$ must be \lo{}, and the heap
+location in $h_1$ located at $\den{E}s_1$ must also be \lo{}. Thus $\den{E}s_1 = \den{E}s_2$, and that
+heap location also exists and is \lo{} in $h_2$. Hence the same value (and label) is written to $x$ in both
+executions, and so $\obseq{\sigma_1'}{\sigma_2'}$.
+
+\textbf{Case 4}: $C = \condfull{B}{C_1}{C_2}$. Note that $\den{B}$ has the same label in both $\sigma_1$
+and $\sigma_2$ because we are assuming that $\exok{\sigma_1}{\sigma_2}{C}{K}$ holds. If this label is \lo, then 
+neither execution changes the state, meaning that $\sigma_1'$ and $\sigma_2'$ are trivially observably equivalent. 
+If the label is \hi, then we can use the fact that $\exok{\sigma_1}{\sigma_2}{C}{K}$ holds to deduce that,
+in the high machine, either both executions complete the body of the if statement or both executions diverge.
+In the latter case, the low-machine executions do not change the state, so observable equivalence is trivial. In 
+the former case, we first prove the following minor lemma (proof omitted here as it is completely straightforward):
+any location which is low in $\sigma_1'$ (alternatively, $\sigma_2'$) has the same value and label as it did in $\sigma_1$ 
+(alternatively, $\sigma_2$). The intuition for this lemma is that $\sigma_1'$ is produced by executing the high machine from $\sigma_1$~--- thus,
+any location written to during this execution is tainted by the high machine and given a label of \hi. This means
+that if a location is \lo{} after the execution, then it must not have been written to at all. Now, since we know
+that $w$ is \lo{} in both $\sigma_1'$ and $\sigma_2'$, we see that it is also \lo{} and has the same value in
+both $\sigma_1$ and $\sigma_2$, and so observable equivalence gives us the desired result.
+
+\textbf{Case 5}: $C = \while{B}{C}$. Same argument as Case 4.
+
+\textbf{Case 6}: $C = \seq{C_1}{C_2}$. Both executions must have used the \ttt{(SEQ-L)} rule, so 
+$\sigma_1'$ and $\sigma_2'$ are trivially observably equivalent.
+
+\end{proof}
+\end{comment}
