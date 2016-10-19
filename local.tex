@@ -1,0 +1,282 @@
+\hyphenation{CompCert}
+\hyphenation{CompCertX}
+\hyphenation{Clight}
+\hyphenation{ClightX}
+\hyphenation{CertiKOS}
+\hyphenation{mCertiKOS}
+\hyphenation{mCTOS}
+\hyphenation{CTOS}
+\hyphenation{mCTOS-hyp}
+\hyphenation{mCTOS-rz}
+\hyphenation{mCTOS-emb}
+\hyphenation{Cos-tan-zo}
+
+%\newcommand{\steprel}{\rightarrow}
+\newcommand{\steprel}{\mapsto}
+\newcommand{\ignore}[1]{}
+
+\newcommand{\assert}[3]{\{#1\}\,#2\,\{#3\}}
+\newcommand{\asserta}[4]{#1 \vdash \{#2\} #3 \{#4\}}
+\newcommand{\assertal}[5]{#2 \vdash_{#1} \{#3\} #4 \{#5\}}
+\newcommand{\assertd}[3]{\vdash \{#1\}\,#2\,\{#3\}}
+\newcommand{\Assert}[3]{\begin{array}{l} \left\{#1\right\} \\ \hspace{6mm} #2 \\ \left\{#3\right\} \end{array}}
+\newcommand{\Assertn}[2]{\begin{array}{l} \hspace{6mm} #1 \\ \left\{#2\right\} \end{array}}
+\newcommand{\Asserto}[1]{\begin{array}{l} \left\{#1\right\} \end{array}}
+\newcommand{\judgpc}[4]{#1 \vdash \{#2\} #3 \{#4\}}
+\newcommand{\judgtc}[4]{#1 \vdash [#2] #3 [#4]}
+\newcommand{\judg}[4]{\, #1 \, \vdash \{#2\} \, #3 \, \{#4\}}
+\newcommand{\derivStart}[5]{\begin{array}{l} \{#1;\;\;#2\} \\ \hspace{6mm} #3 \\ \{#4;\;\;#5\} \end{array}}
+\newcommand{\derivNext}[3]{\begin{array}{l} \hspace{6mm} #1 \\ \{#2;\;\;#3\} \end{array}}
+\newcommand{\derivNextC}[4]{\begin{array}{l} \hspace{6mm} #1 \\ \{#2;\;\;#3\} \hspace{4mm} (#4) \end{array}}
+\newcommand{\derivLast}[2]{\begin{array}{l} \{#1;\;\;#2\} \end{array}}
+\newcommand{\derivStartS}[3]{\begin{array}{l} \{#1\} \\ \hspace{6mm} #2 \\ \{#3\} \end{array}}
+\newcommand{\derivNextS}[2]{\begin{array}{l} \hspace{6mm} #1 \\ \{#2\} \end{array}}
+\newcommand{\derivNextSC}[3]{\begin{array}{l} \hspace{6mm} #1 \\ \{#2\} \hspace{4mm} (#3) \end{array}}
+\newcommand{\derivLastS}[1]{\begin{array}{l} \{#1\} \end{array}}
+\newcommand{\cmnt}[1]{\hspace{2mm} #1}
+\newcommand{\asserts}[3]{\vdash \left\{#1\right\} #2 \left\{#3\right\}}
+\newcommand{\assertm}[3]{\models \left\{#1\right\} #2 \left\{#3\right\}}
+\newcommand{\assertma}[4]{#1 \models \left\{#2\right\} #3 \left\{#4\right\}}
+\newcommand{\assertmasmall}[4]{#1 \models \{#2\} #3 \{#4\}}
+\newcommand{\den}[1]{\llbracket #1 \rrbracket}
+\newcommand{\denb}[1]{\llbracket #1 \rrbracket^2}
+\newcommand{\emp}{\emptyset}
+\newcommand{\pipe}{\hspace{1mm} | \hspace{1mm}}
+\newcommand{\such}{\hspace{1mm} . \hspace{1mm}}
+\newcommand{\nil}{\ttt{nil}}
+\newcommand{\fault}{\ttt{fault}}
+\newcommand{\false}{\ttt{false}}
+\newcommand{\true}{\ttt{true}}
+\newcommand{\F}{\ttt{F}}
+\newcommand{\T}{\ttt{T}}
+\newcommand{\empa}{\ttt{emp}}
+\newcommand{\empah}{\ttt{emp}_h}
+\newcommand{\empas}{\ttt{emp}_s}
+\newcommand{\assume}{\ttt{assume}}
+\newcommand{\new}[1]{\ttt{new} \, #1}
+\newcommand{\free}[1]{\ttt{free} \, #1}
+\newcommand{\skp}{\ttt{skip}}
+\newcommand{\hp}{\sigma}
+\newcommand{\Hp}{\Sigma}
+\newcommand{\st}{\tau}
+\newcommand{\St}{\Pi}
+\newcommand{\spo}{\hspace{1mm}}
+\newcommand{\spp}{\hspace{2mm}}
+\newcommand{\sppp}{\hspace{3mm}}
+\newcommand{\spppp}{\hspace{4mm}}
+\newcommand{\wand}{-\!\!*}
+\newcommand{\lolli}{-\!\!\circ}
+\newcommand{\swand}{-\!\!\star}
+\newcommand{\flmapsto}{\looparrowright}
+\newcommand{\nmapsto}{\mapsto \hspace{-4mm} / \hspace{1mm}}
+\newcommand{\fl}{\ttt{FL}}
+\newcommand{\capext}{\bigtriangledown}
+\newcommand{\cupext}{\bigtriangleup}
+\newcommand{\pmapsto}[1]{\stackrel{#1}{\mapsto}}
+\newcommand{\readc}{\ttt{read}}
+\newcommand{\writec}{\ttt{write}}
+\newcommand{\addtag}{\ttt{addTag}}
+\newcommand{\remtag}{\ttt{removeTag}}
+\newcommand{\cond}[2]{\ttt{if} \, #1 \, \ttt{then} \, #2}
+\newcommand{\condfull}[3]{\ttt{if} \, #1 \, \ttt{then} \, #2 \, \ttt{else} \, #3}
+\newcommand{\while}[2]{\ttt{while} \, #1 \, \ttt{do} \, #2}
+\newcommand{\with}[2]{\ttt{with} \, #1 \, \ttt{do} \, #2}
+\newcommand{\atomic}[1]{\ttt{atomic} \, #1}
+\newcommand{\seq}[2]{#1; #2}
+\newcommand{\conds}[3]{\ttt{if}(#1,#2,#3)}
+\newcommand{\whiles}[2]{\ttt{while}(#1,#2)}
+\newcommand{\decl}[2]{\ttt{classify} \, [#1] \, \ttt{as} \, #2}
+\newcommand{\declend}{\ttt{decl\_end}}
+\newcommand{\ret}[1]{\ttt{return} \, #1}
+\newcommand{\retcont}[2]{\ttt{Ret}(#1,#2)}
+\newcommand{\seqcont}[1]{\ttt{Cmd}(#1)}
+\newcommand{\pccont}[1]{\ttt{PC}(#1)}
+\newcommand{\rest}[1]{\ttt{restore} \, #1}
+\newcommand{\out}[1]{\ttt{output} \, #1}
+\newcommand{\prim}[1]{#1}
+\newcommand{\this}{\ttt{this}}
+\newcommand{\callret}[3]{#1 := #2(#3)}
+\newcommand{\call}[2]{#1(#2)}
+\newcommand{\floor}[1]{\lfloor #1 \rfloor}
+\newcommand{\ope}{\odot}
+\newcommand{\opb}{\oplus}
+\newcommand{\own}[1]{\ttt{Own}(#1)}
+\newcommand{\deriva}[1]{\{#1\} \newline}
+\newcommand{\derivc}[1]{\,\,\,\,#1 \newline}
+\newcommand{\pwrset}[1]{\mathbb{P}(#1)}
+\newcommand{\finpf}{\stackrel[\text{fin}]{}{\rightharpoonup}}
+\newcommand{\pf}{\rightharpoonup}
+\newcommand{\hastype}{\hspace{1mm} : \hspace{1mm}}
+\newcommand{\TODO}{***TODO***}
+\newcommand{\dunno}{\hspace{4mm}(??)}
+\newcommand{\codeHighlight}[1]{\textbf{#1}}
+\newcommand{\says}{\textbf{ says }}
+\newcommand{\ok}{\textit{ Ok }}
+\newcommand{\mapstol}[1]{\stackrel{#1}{\mapsto}}
+\newcommand{\spec}[2]{\{#1\}-\{#2\}}
+\newcommand{\retvar}{\mathcal{R}}
+\newcommand{\dom}[1]{\lfloor #1 \rfloor}
+\newcommand{\haslbl}[2]{#1 \, \ttt{has} \, #2}
+\newcommand{\guards}[2]{#1 \, \ttt{guards} \, #2}
+\newcommand{\sv}{\ttt{wrong}}
+\newcommand{\isdef}{\stackrel{\triangle}{=}}
+\newcommand{\stepp}[2]{\stackrel{#2}{\longrightarrow}}
+\newcommand{\stepnp}[3]{\stackrel{#2}{\longrightarrow_{#1}}}
+\newcommand{\stepsp}[2]{\stackrel{#2}{\longrightarrow_{*}}}
+\newcommand{\step}[4]{#1 \vdash #3 \stackrel{#2}{\longrightarrow} #4}
+\newcommand{\stepn}[5]{#1 \vdash #4 \stackrel{#3}{\longrightarrow_{#2}} #5}
+\newcommand{\steps}[4]{#1 \vdash #3 \stackrel{#2}{\longrightarrow_{*}} #4}
+\newcommand{\stepl}[5]{#2 \vdash_{#1} #4 \stackrel{#3}{\longrightarrow} #5}
+\newcommand{\stepnl}[6]{#2 \vdash_{#1} #5 \stackrel{#4}{\longrightarrow_{#3}} #6}
+\newcommand{\stepsl}[5]{#2 \vdash_{#1} #4 \stackrel{#3}{\longrightarrow_{*}} #5}
+\newcommand{\pstep}[2]{\stackrel[#1]{#2}{\longrightarrow}}
+\newcommand{\pstepn}[3]{\stackrel[\!\!#1]{#3}{\longrightarrow_{#2}}}
+\newcommand{\psteps}[2]{\stackrel[\!\!#1]{#2}{\longrightarrow_{*}}}
+\newcommand{\bstep}{\step{}{}}
+\newcommand{\bstepn}[1]{\stepn{}{#1}{}}
+\newcommand{\bsteps}{\steps{}{}}
+\newcommand{\lstep}[1]{\step{L}{#1}}
+\newcommand{\lstepn}[2]{\stepn{L}{#1}{#2}}
+\newcommand{\lsteps}[1]{\steps{L}{#1}}
+\newcommand{\hstep}{\step{H}{}}
+\newcommand{\hstepn}[1]{\stepn{H}{#1}{}}
+\newcommand{\hsteps}{\steps{H}{}}
+\newcommand{\bpstep}{\longrightarrow}
+\newcommand{\bpstepn}[1]{\stackrel{#1}{\longrightarrow}}
+\newcommand{\bpsteps}{\stackrel{*}{\longrightarrow}}
+\newcommand{\istep}{\leadsto}
+\newcommand{\istepn}[1]{\stackrel{#1}{\leadsto}}
+\newcommand{\isteps}{\stackrel{*}{\leadsto}}
+\newcommand{\ibstep}{\downarrow}
+\newcommand{\rs}{\ttt{RS}}
+\newcommand{\ws}{\ttt{WS}}
+\newcommand{\lo}{\ttt{Lo}}
+\newcommand{\hi}{\ttt{Hi}}
+\newcommand{\ttt}[1]{\text{\tt{#1}}}
+\newcommand{\ttts}[1]{\text{#1 }}
+\newcommand{\dt}{\bullet}
+\newcommand{\addpols}[4]{\ttt{add\_pols}_{#1,#2,#3}(#4)}
+\newcommand{\addlopols}[4]{\ttt{add\_pols}_{#1,#2,\bigsqcup #1(#3)}(#4)}
+\newcommand{\addhipols}[3]{\ttt{add\_pols}_{#1,#2,\hi}(#3)}
+\newcommand{\confi}[2]{\langle #1, \, #2 \rangle}
+\newcommand{\config}[5]{\langle\!\langle #1, \, #2, \, #3, \, #4, \, #5 \rangle\!\rangle}
+\newcommand{\configt}[6]{\langle #1, \, #2, \, #3, \, #4, \, #5, \, #6 \rangle}
+\newcommand{\configo}[4]{\langle #1, \, #2, \, #3, \, #4 \rangle}
+\newcommand{\configg}[3]{\langle #1, \, #2, \, #3 \rangle}
+\newcommand{\pconfig}[3]{\langle #1, \, #2, \, #3 \rangle}
+\newcommand{\pconfighs}[4]{\langle #1, \, #2, \, #3, \, #4 \rangle}
+\newcommand{\pconfigb}[4]{\langle #1, \, #2, \, #3, \, #4 \rangle}
+\newcommand{\pconfigbhs}[6]{\langle #1, \, #2, \, #3, \, #4, \, #5, \, #6 \rangle}
+%\newcommand{\safe}[2]{\ifextended \Box #1^{#2} \else \ttt{safe}(#1,#2) \fi}
+\newcommand{\safe}[2]{\ttt{safe}(#1,#2)}
+\newcommand{\lsafe}[1]{\ttt{lsafe} \, #1}
+\newcommand{\hsafe}[1]{\ttt{hsafe} \, #1}
+\newcommand{\lopol}{\ttt{lo}}
+\newcommand{\hipol}{\ttt{hi}}
+\newcommand{\lift}{\uparrow\!\!}
+\newcommand{\none}{\ttt{None}}
+\newcommand{\some}[1]{\ttt{Some} \,\, #1}
+\newcommand{\option}[1]{\ttt{option} \,\, #1}
+\newcommand{\rvars}{\ttt{rvars}}
+\newcommand{\typed}{\ttt{typed?}}
+\newcommand{\typedok}[3]{\ttt{typed\_locs\_ok}(#1,#2,#3)}
+\newcommand{\cf}{\ttt{cf}}
+\newcommand{\bsafe}[4]{\ttt{bisafe}\configb{#1}{#2}{#3}{#4}}
+\newcommand{\obseqhs}[5]{\ttt{obs\_eq}\configbhs{#1}{#2}{#3}{#4}{#5}}
+\newcommand{\bsafehs}[5]{\ttt{bisafe}\configbhs{#1}{#2}{#3}{#4}{#5}}
+\newcommand{\exok}[4]{\ttt{conditionals\_ok}\configb{#1}{#2}{#3}{#4}}
+\newcommand{\biok}[4]{\ttt{ok}\configb{#1}{#2}{#3}{#4}}
+%\newcommand{\pbsafe}[4]{\ttt{bisafe}\pconfigb{#1}{#2}{#3}{#4}}
+%\newcommand{\pobseqhs}[5]{\ttt{obs\_eq}\pconfigbhs{#1}{#2}{#3}{#4}{#5}}
+%\newcommand{\pbsafehs}[5]{\ttt{bisafe}\pconfigbhs{#1}{#2}{#3}{#4}{#5}}
+%\newcommand{\pexok}[4]{\ttt{conditionals\_ok}\pconfigb{#1}{#2}{#3}{#4}}
+%\newcommand{\pbiok}[4]{\ttt{ok}\pconfigb{#1}{#2}{#3}{#4}}
+\newcommand{\exokt}{\ttt{conditionals\_ok}}
+\newcommand{\biokt}{\ttt{ok}}
+\newcommand{\obj}{\mathcal{O}}
+\newcommand{\Conv}{\mathop{\scalebox{2}{\raisebox{-0.2ex}{$*$}}}}
+\newcommand{\act}{\propto}
+\newcommand{\fence}{\rhd}
+\newcommand{\assertbox}[1]{\fbox{\parbox{.965\linewidth}{#1}}}
+\newcommand{\codebox}[1]{\raisebox{0pt}[1.5\height][.8\height]{#1}}
+\newcommand{\codeboxup}[1]{\raisebox{0pt}[1.5\height][\depth]{#1}}
+\newcommand{\codeboxdown}[1]{\raisebox{0pt}[\height][.8\height]{#1}}
+\newcommand{\append}{\mathbin{+\!\!+}}
+\newcommand{\load}[3]{#3 : =[#1,#2]}
+\newcommand{\store}[3]{[#1,#2] := #3}
+\newcommand{\alloc}{\ttt{alloc}}
+\newcommand{\freee}{\ttt{free}}
+\newcommand{\ptr}[2]{\text{Ptr}(#1,#2)}
+\newcommand{\integer}[1]{\text{Int}(#1)}
+%\newcommand{\undef}{\text{Undef}}
+\newcommand{\auth}{\mathcal{A}}
+\newcommand{\view}{{l_o}}
+\newcommand{\pc}{{l_{pc}}}
+\newcommand{\obseq}[3]{{#2 \sim_{#1} #3}}
+\newcommand{\obseqa}[4]{{#3 \stackrel[]{#1}{\sim_{#2}} #4}}
+\newcommand{\obseqs}[2]{{#1 \sim #2}}
+\newcommand{\refine}[3]{{#1 \preceq_{#3} #2}}
+\newcommand{\erefine}[4]{{#1 \preceq^{#4}_{#3} #2}}
+\newcommand{\secure}[3]{\Delta #1^{#2}_{#3}}
+\newcommand{\bsecure}[3]{\nabla #1^{#2}_{#3}}
+\newcommand{\empst}{e}
+\newcommand{\empmap}{\ttt{emp}}
+\newcommand{\simu}[3]{#1~\sqsubseteq_{#3}~#2}
+\newcommand{\bisimu}[3]{#1~\equiv_{#3}~#2}
+\newcommand{\observe}[2]{\mathcal{O}_{#1}(#2)}
+\newcommand{\observem}[3]{\mathcal{O}_{#1;#2}(#3)}
+\newcommand{\behavioral}[2]{\flat #1^{#2}}
+\newcommand{\behaviorals}[3]{\flat #1^{#2}(#3)}
+\newcommand{\behavior}[2]{\mathcal{B}_{#1}(#2)}
+\newcommand{\determ}[1]{\ifextended \downarrow #1 \else \ttt{determ}(#1) \fi}
+\newcommand{\obsrelr}[1]{\Bar{#1}}
+\newcommand{\obsrel}[1]{f}
+\newcommand{\mathid}{\mathit{Id}}
+\newcommand{\truep}{\top}
+\newcommand*{\Scale}[2][4]{\scalebox{#1}{$#2$}}
+\newcommand{\maybecut}[1]{#1}
+\newcommand{\cut}[1]{\ifextended{#1}\else\fi}
+\newcommand{\princ}{\mathcal{P}}
+\newcommand{\gett}{\ttt{gettime}}
+\newcommand{\startt}{\ttt{starttime}}
+\newcommand{\stopt}{\ttt{stoptime}}
+\newcommand{\relate}[3]{#2 #1 #3}
+\newcommand{\relatebr}[3]{#2 \left[#1\right] #3}
+\newcommand{\behave}[2]{#2 #1}
+\newcommand{\bhvr}[2]{\langle #1 \rangle #2}
+\newcommand{\sub}[2]{[#1 / #2]}
+\newcommand{\dvg}{\texttt{div}}
+\newcommand{\id}{\ttt{Id}}
+\newcommand{\locact}{\textbf{LocAct}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\cons}{\ttt{cons}}
+\newcommand{\av}{\ttt{av}}
+\newcommand{\rassert}[4]{\{#1\} \begin{array}{c} #2 \vspace{2mm} \\  #3 \end{array} \{#4\}}
+\newcommand{\assertsl}[3]{\models_{SL} \{#1\}\,#2\,\{#3\}}
+\newcommand{\diverges}{\uparrow}
+\newcommand{\bpsafe}{\ttt{safe}}
+\newcommand{\citestuff}{{\footnotesize{[\emph{citations}]}}}
+\newcommand{\spawned}[1]{\ttt{Spawned}(#1)}
+
+\newtheorem{thm}{Theorem}
+%\newtheorem*{thmx}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{cor}{Corollary}
+\newtheorem{propo}{Proposition}
+%\newtheorem{proof}{Proof}
+
+%\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{parameter}{Parameter}
+
+%\theoremstyle{remark}
+%\newtheorem*{note}{Note}
+\newtheorem{case}{Case}
+\newtheorem{case2}{Case}
+\newtheorem{case3}{Case}
+\newtheorem{case4}{Case}
+\newtheorem{prop}{Property}
+%\newtheorem*{para}{}
+

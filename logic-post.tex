@@ -1,0 +1,791 @@
+\section{The Program Logic}
+\label{logic}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[!t]
+
+\begin{mathpar}
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+
+\production{& P,Q}
+    \prodcase{\empa}
+    \prodcase{E \mapsto \_}
+    \prodcase{E \mapsto (n,l)}
+    \prodcase{B}
+    \prodcase{x.\ttt{lbl} = l}
+    \prodcase{x.\ttt{lbl} \sqsubseteq l}
+    \prodcase{\ttt{lbl}(E) = l}
+    \prodcase{\exists X \such P}
+    \prodcase{P \land Q}
+    \prodcase{P \lor Q}
+    \prodcase{P*Q}
+    
+\end{bnf}
+\end{mathpar}
+
+\begin{comment}
+\begin{align*}
+\den{P} \,\, & : \,\, \pwrset{\ttt{state}} \\
+(s,h) \in \den{E = (v,d)} & \iff \den{E}s = \some{(v,d)} \\
+(s,h) \in \den{E \downarrow l} & \iff
+\left(\begin{aligned}
+\den{E}s & = \some{(\_,d)} \, \land \\
+& d \, \overline{(s,h)} = \some{l}
+\end{aligned}\right) \\
+(s,h) \in \den{B = (b,d)} & \iff \den{B}s = \some{(b,d)} \\
+(s,h) \in \den{B \downarrow l} & \iff
+\left(\begin{aligned}
+\den{B}s & = \some{(\_,d)} \, \land \\
+& d \, \overline{(s,h)} = \some{l}
+\end{aligned}\right) \\
+%(s,h) \in \den{E_1 \mapsto (v,d)} & \iff
+%\left(\begin{aligned}
+%& \den{E_1}s = \some{(v_1,\_)} \, \land \\
+%& h = [v_1 \hookrightarrow (v,d)]
+%\end{aligned}\right) \\
+%(s,h) \in \den{E_1 \mapsto E_2} & \iff
+%\left(\begin{aligned}
+%& \den{E_1}s = \some{(v_1,\_)} \, \land \\
+%& \den{E_2}s = \some{(v_2,d_2)} \, \land \\
+%& h = [v_1 \hookrightarrow (v_2,d_2)]
+%\end{aligned}\right) \\
+(s,h) \in \den{P \land Q} & \iff (s,h) \in \den{P} \cap \den{Q} \\
+(s,h) \in \den{P \lor Q} & \iff (s,h) \in \den{P} \cup \den{Q} \\
+%(s,h) \in \den{P*Q} & \iff
+%\left(\begin{aligned}
+%\exists &h0,h1 \such h = h0 \dt h1 \, \land \\
+%& (s,h0) \in \den{P} \land (s,h1) \in \den{Q}
+%\end{aligned}\right)
+\end{align*}
+\end{comment}
+
+\begin{align*}
+\den{P} \,\, & : \,\, \pwrset{\ttt{state}} \\
+(s,h) \in \den{\empa} & \iff h = \emptyset \\
+(s,h) \in \den{E \mapsto \_} & \iff \exists a,n,l \such \den{E}s = \some{a} \land h = [a \mapsto (n,l)] \\
+(s,h) \in \den{E \mapsto (n,l)} & \iff \exists a \such \den{E}s = \some{a} \land h = [a \mapsto (n,l)] \\
+(s,h) \in \den{B} & \iff \den{B}s = \some{\true} \\
+(s,h) \in \den{x.\ttt{lbl} = l} & \iff \exists n \such s(x) = \some{(n,l)} \\
+(s,h) \in \den{x.\ttt{lbl} \sqsubseteq l} & \iff \exists n,l' \such s(x) = \some{(n,l')} \text{ and } l' \sqsubseteq l \\
+(s,h) \in \den{\ttt{lbl}(E) = l} & \iff \bigsqcup_{x \in \ttt{vars}(E)} \text{snd}(s(x)) = l \\
+(s,h) \in \den{\exists X \such P} & \iff \exists v \in \mathbb{Z} + \text{Lbl} \such (s,h) \in \den{P[v/X]} \\
+(s,h) \in \den{P \land Q} & \iff (s,h) \in \den{P} \cap \den{Q} \\
+(s,h) \in \den{P \lor Q} & \iff (s,h) \in \den{P} \cup \den{Q} \\
+(s,h) \in \den{P*Q} & \iff
+\left( \begin{aligned}
+& \exists h_0, h_1 \such h_0 \uplus h_1 = h \\
+& \quad \land (s,h_0) \in \den{P} \\
+& \quad \land (s,h_1) \in \den{Q}
+\end{aligned} \right)
+\end{align*}
+
+\begin{comment}
+\begin{align*}
+P \backslash x & : \ttt{assertion} \rightarrow \ttt{option assertion} \\
+E \mapsto \_ \backslash x & \isdef
+\left\{ \begin{aligned}
+& \none & \text{if } x \in \ttt{vars}(E) \\
+& \some{E \mapsto \_} & \text{otherwise}
+\end{aligned} \right. \\
+E \mapsto (n,l) \backslash x & \isdef
+\left\{ \begin{aligned}
+& \none & \text{if } x \in \ttt{vars}(E) \\
+& \some{E \mapsto (n,l)} & \text{otherwise}
+\end{aligned} \right. \\
+B \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{\true} & \text{if } x \in \ttt{vars}(B) \\
+& \some{B} & \text{otherwise}
+\end{aligned} \right. \\
+y.\ttt{lbl} = l \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{\true} & \text{if } x = y \\
+& \some{y.\ttt{lbl} = l} & \text{otherwise}
+\end{aligned} \right. \\
+y.\ttt{lbl} \sqsubseteq l \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{\true} & \text{if } x = y \\
+& \some{y.\ttt{lbl} \sqsubseteq l} & \text{otherwise}
+\end{aligned} \right. \\
+P \land Q \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{P' \land Q'} & \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & \text{otherwise}
+\end{aligned} \right. \\
+P \lor Q \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{P' \lor Q'} & \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & \text{otherwise}
+\end{aligned} \right. \\
+P \Rightarrow Q \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{P' \Rightarrow Q'} & \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & \text{otherwise}
+\end{aligned} \right. \\
+P * Q \backslash x & \isdef
+\left\{ \begin{aligned}
+& \some{P' * Q'} & \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & \text{otherwise}
+\end{aligned} \right.
+\end{align*}
+\end{comment}
+
+\caption{Assertion Syntax and Semantics}
+\label{assertion}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We next present the formal inference rules used for verifying the security of a program.
+A logic judgment takes the form $\judg{l}{P}{C}{Q}$. $P$ and $Q$ are the pre- and postconditions, 
+$C$ is the program to be executed, and $l$ is the pc label under which the program is verified.
+$P$ and $Q$ are \emph{state assertions}, whose syntax and semantics are given in Figure~\ref{assertion}.
+
+\vspace{-2mm}
+\paragraph{\textbf{Note}}
+We allow assertions to contain logical variables, but we elide the details here to avoid complicating
+the presentation. In Figure~\ref{assertion}, we claim that the type of $\den{P}$ is a set of states~---
+in reality, the type is a function from logical variable environments to sets of states. In an
+assertion like $E \mapsto (n,l)$, the $n$ and $l$ may be logical variables rather than constants.
+
+\begin{definition}[Sound judgment]
+\label{soundjudg}
+We say that a judgment $\judg{l}{P}{C}{Q}$ is \emph{sound} if, for any state $\sigma \in \den{P}$,
+the following two properties hold:
+\begin{enumerate}
+\item The operational semantics cannot get stuck when executed from initial configuration 
+$\pconfig{\sigma}{C}{[]}$ with pc label $l$.
+\item If the operational semantics executes from initial configuration $\pconfig{\sigma}{C}{[]}$ with
+pc label $l$ and terminates at state $\sigma'$, then $\sigma' \in \den{Q}$.
+\end{enumerate}
+\end{definition}
+
+Selected inference rules for our logic are shown in Figure~\ref{logicrules}. The rules make use of
+two auxiliary syntactic functions, $P \backslash x$ and $P \backslash x.\ttt{lbl}$ (read the backslash
+operator as ``delete''). $P \backslash x$
+replaces any atomic assertions within $P$ referring to $x$ by the assertion \ttt{true}. Similarly,
+$P \backslash x.\ttt{lbl}$ replaces atomic assertions referring to $x.\ttt{lbl}$ by \ttt{true}.
+We also sometimes abuse notation and write $P \backslash S$ or $P \backslash S.\ttt{lbl}$, where
+$S$ is a set of variables, to indicate the iterative folding of these functions over the set
+$S$. The important fact about these auxiliary functions is that, if $P$ holds on some state
+and we perform an assigment into $x$, then $P \backslash x$ will hold on the resulting state.
+Furthermore, if we change only the label of $x$ without touching its data (this is done by
+the $\ttt{mark\_vars}$ function described in Section~\ref{semantics}), then 
+$P \backslash x.\ttt{lbl}$ will hold on the resulting state.
+
+\begin{comment}
+, defined as follows:
+\begin{align*}
+\empa \backslash x & = \some{\empa} \\
+(E \mapsto \_) \backslash x & = \left\{
+\begin{aligned}
+& \none & , & \quad \text{if } x \in \ttt{vars}(E) \\
+& \some{E \mapsto \_} & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(E \mapsto (n,l)) \backslash x & = \text{(same as previous case)} \\
+B \backslash x & = \left\{
+\begin{aligned}
+& \some{\ttt{true}} & , & \quad \text{if } x \in \ttt{vars}(E) \\
+& \some{B} & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(y.\ttt{lbl} = l) \backslash x & = \left\{
+\begin{aligned}
+& \some{\ttt{true}} & , & \quad \text{if } y = x \\
+& \some{y.\ttt{lbl} = l} & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(y.\ttt{lbl} \sqsubseteq l) \backslash x & = \text{(same as previous case)} \\
+(\ttt{lbl}(E) = l) \backslash x & = \left\{
+\begin{aligned}
+& \some{\ttt{true}} & , & \quad \text{if } x \in \ttt{vars}(E) \\
+& \some{\ttt{lbl}(E) = l} & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(\exists X \such P) \backslash x & = \left\{
+\begin{aligned}
+& \some{\exists X \such P'} & , & \quad \text{if } P \backslash x = \some{P'} \\
+& \none & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(P \land Q) \backslash x & = \left\{
+\begin{aligned}
+& \some{P' \land Q'} & , & \quad \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(P \lor Q) \backslash x & = \left\{
+\begin{aligned}
+& \some{P' \lor Q'} & , & \quad \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & , & \quad \text{otherwise}
+\end{aligned}\right. \\
+(P * Q) \backslash x & = \left\{
+\begin{aligned}
+& \some{P' * Q'} & , & \quad \text{if } P \backslash x = \some{P'} \text{ and } Q \backslash x = \some{Q'} \\
+& \none & , & \quad \text{otherwise}
+\end{aligned}\right.
+\end{align*}
+\end{comment}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}[!p]
+
+\begin{mathpar}
+
+\ttt{mark\_vars}(P,S,l,l') \isdef \left\{
+\begin{aligned}
+& P & , & \qquad \text{if } l \sqsubseteq l' \\
+& P \backslash S.\ttt{lbl} \land \left(\bigwedge_{x \in S} l \sqcup l' \sqsubseteq x.\ttt{lbl}\right) & , & \qquad \text{otherwise}
+\end{aligned}\right.
+
+\inferrule*[right=(SKIP)]
+{ }
+{\judg{l}{P}{\skp}{P}}
+
+\inferrule*[right=(OUTPUT)]
+{P \Rightarrow \ttt{lbl}(E) = \lo}
+{\judg{\lo}{P}{\out{E}}{P}}
+
+\inferrule*[right=(ASSIGN)]
+{P \Rightarrow \ttt{lbl}(E) = l}
+{\judg{l'}{P}{x:=E}{(P \backslash x)[E/x] \land x.\ttt{lbl} = l \sqcup l'}}
+
+\inferrule*[right=(READ)]
+{P \Rightarrow \ttt{lbl}(E) = l_1 \\
+P \Rightarrow E \mapsto (n,l_2)}
+{\judg{l}{P}{x:=[E]}{P \backslash x \land x = n \land x.\ttt{lbl} = l_1 \sqcup l_2 \sqcup l}}
+
+\inferrule*[right=(WRITE)]
+{P \Rightarrow \ttt{lbl}(E) = l_1 \\
+P \Rightarrow \ttt{lbl}(E') = l_2 \\
+P \Rightarrow E \mapsto \_}
+{\judg{l}{P}{[E]:=E'}{P \land \exists n \such E \mapsto (n,l_1 \sqcup l_2 \sqcup l) \land E' = n}}
+
+\inferrule*[right=(IF)]
+{P \Rightarrow B \lor \lnot B \\
+B \land P \Rightarrow \ttt{lbl}(B) = l_t \\
+\lnot B \land P \Rightarrow \ttt{lbl}(B) = l_f \\
+S = \ttt{modifies}(\condfull{B}{C_1}{C_2}) \\
+\judg{l_t \sqcup l'}{B \land \ttt{mark\_vars}(P,S,l_t,l')}{C_1}{Q} \\
+\judg{l_f \sqcup l'}{\lnot B \land \ttt{mark\_vars}(P,S,l_f,l')}{C_2}{Q}}
+{\judg{l'}{P}{\condfull{B}{C_1}{C_2}}{Q}}
+
+%\inferrule*[right=(IF-LO)]
+%{P \Rightarrow \ttt{lbl}(B) = \lo{} \\
+%\judg{(\lo{},b,b')}{I}{B \land P}{C_1}{Q} \\
+%\judg{(\lo{},b,b')}{I}{\lnot B \land P}{C_2}{Q}}
+%{\judg{(\lo{},b,b')}{I}{P}{\condfull{B}{C_1}{C_2}}{Q}}
+
+\inferrule*[right=(WHILE)]
+{P \Rightarrow \ttt{lbl}(B) = l \\
+S = \ttt{modifies}(\while{B}{C}) \\
+\judg{l \sqcup l'}{B \land \ttt{mark\_vars}(P,S,l,l')}{C}{\ttt{mark\_vars}(P,S,l,l')}}
+{\judg{l'}{P}{\while{B}{C}}{\lnot B \land \ttt{mark\_vars}(P,S,l,l')}}
+
+%\inferrule*[right=(WHILE-LO)]
+%{P \Rightarrow \ttt{lbl}(B) = \lo{} \\
+%\judg{(\lo{},b,b')}{I}{B \land P}{C}{P}}
+%{\judg{(\lo{},b,b')}{I}{P}{\while{B}{C}}{\lnot B \land P}}
+
+\inferrule*[right=(SEQ)]
+{\judg{l}{P}{C_1}{Q} \\
+\judg{l}{Q}{C_2}{R}}
+{\judg{l}{P}{C_1;C_2}{R}}
+
+\inferrule*[right=(CONSEQ)]
+{P' \Rightarrow P \\
+Q \Rightarrow Q' \\
+\judg{l}{P}{C}{Q}}
+{\judg{l}{P'}{C}{Q'}}
+
+\inferrule*[right=(CONJ)]
+{\judg{l}{P_1}{C}{Q_1} \\
+\judg{l}{P_2}{C}{Q_2}}
+{\judg{l}{P_1 \land P_2}{C}{Q_1 \land Q_2}}
+
+\inferrule*[right=(FRAME)]
+{\judg{l}{P}{C}{Q} \\
+\ttt{modifies}(C) \cap \ttt{vars}(R) = \emptyset}
+{\judg{l}{P * R}{C}{Q * R}}
+\end{mathpar}
+
+\caption{Selected Inference Rules for the Logic}
+\label{logicrules}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Here are a few interesting points to note about these inference rules:
+\begin{itemize}
+\item While the rules shown here mostly involve detailed reasoning about label propagation, we can also prove
+the soundness of simpler versions of the rules that do not reason about labels and, consequentially, do not have 
+any label-related proof obligations.
+\item The (IF) and (WHILE) rules may look rather complex, but almost all of that is just describing how to
+reason about the \ttt{mark\_vars} function that gets applied at the beginning of a conditional construct
+when the pc label increases.
+\item An additional complexity present in the (IF) rule involves the labels $l_t$ and $l_f$. In fact, these
+labels describe a novel and interesting feature of our system: when verifying an if statement, it might be
+possible to reason that the pc label gets raised by $l_t$ in one branch and by $l_f$ in the other, based on 
+the fact that $B$ holds in one branch but not in the other. This is interesting if $l_t$ and $l_f$ are
+different labels. In every other static-analysis IFC system we are aware of, a particular pc label must be 
+determined at the entrance to the conditional, and this pc label will propagate to both branches. We will 
+see an example program shortly that illustrates this novelty.
+\end{itemize}
+
+\noindent
+Given our logic inference rules, the following theorem holds:
+
+\begin{thm}[Soundness]
+If $\judg{l}{P}{C}{Q}$ is derivable according to our inference rules, then it is a \emph{sound judgment}, as defined
+in Definition~\ref{soundjudg}.
+\end{thm}
+
+\section{Example: Alice's Calendar}
+
+\begin{figure}[t]
+\begin{alltt}
+1  i := 0;
+2  while (i < 64) do
+3      x := [A+i];
+4      if (x = 0)
+5          then 
+6              output i
+7          else 
+8              skip;
+9      i := i+1
+\end{alltt}
+\caption{Example: Alice's Private Calendar}
+\label{calexample}
+\end{figure}
+
+Before we delve into the noninterference guarantee provided by the inference rules, 
+let us first see how the inference rules can be used to verify an interesting example.
+Consider the calendar example discussed previously.
+Figure~\ref{calexample} shows a program that we would like to prove is secure with
+respect to Alice's policy. Suppose Alice owns a calendar with 64 time slots 
+beginning at some location designated by constant $A$. Each time slot is either 0 if she is 
+free at that time, or some nonzero value representing an event if she is busy. Alice does
+not want to reveal any details about her scheduled events; this policy still allows for others to 
+schedule a meeting time with her, as they can determine when she is available. Indeed, the 
+example program shown here simply prints out all free time slots.
+
+\begin{figure}[!p]
+\[P \isdef \stackrel[i=0]{63}{\Conv} \, (A+i \mapsto (n_i,l_i) \land n_i = 0 \iff l_i = \lo{})\]
+
+\begin{alltt}
+   \assertbox{Lo \(\vdash\) \{P\}}
+1  \codebox{i := 0;}
+   \assertbox{Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i \(\land\) i.lbl = Lo\}}
+2  \codebox{while (i < 64) do}
+   \assertbox{    Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo\}}
+3      \codebox{x := [A+i];}
+   \assertbox{    Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\)
+               (x = 0 \(\iff\) x.lbl = Lo)\}}
+4      \codebox{if (x = 0)}
+5          \codebox{then}
+   \assertbox{            Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) 
+                          x = 0 \(\land\) x.lbl = Lo\}}
+6              \codebox{output i}
+   \assertbox{            Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) 
+                          x = 0 \(\land\) x.lbl = Lo\}}
+   \assertbox{            Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo\}}
+7          \codebox{else}
+   \assertbox{            Hi \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) 
+                          x \(\neq\) 0 \(\land\) x.lbl = Hi\}}
+8              \codebox{skip;}
+   \assertbox{            Hi \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) 
+                          x \(\neq\) 0 \(\land\) x.lbl = Hi\}}
+   \assertbox{            Hi \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo\}}
+   \assertbox{    Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i < 64 \(\land\) i.lbl = Lo\}}
+9      \codebox{i := i+1}
+   \assertbox{    Lo \(\vdash\) \{P \(\land\) 0 \(\leq\) i \(\land\) i.lbl = Lo\}}
+   \assertbox{Lo \(\vdash\) \{P \(\land\) i \(\geq\) 64 \(\land\) 0 \(\leq\) i \(\land\) i.lbl = Lo\}}
+\end{alltt}
+\caption{Calendar Example Verification}
+\label{calverification}
+\end{figure}
+
+Figure~\ref{calverification} gives an overview of the verification, omitting a few trivial details. In between each line of
+code, we show the current pc label and a state predicate that currently holds.
+The program is verified with respect to Alice's policy, described by the precondition $P$ defined in the figure. 
+This precondition is the iterated separating conjunction of 64 calendar slots; each slot's label is \lo{} if its value is
+0 and \hi{} otherwise. A major novelty of this verification regards the conditional statement at lines 4-8.
+As mentioned earlier, in other IFC systems, the label of the boolean expression ``$x = 0$'' would have to be determined at 
+the time of entering the conditional, and its label would then propagate into both branches via the pc label. In our system, 
+however, we can reason that the expression's label (and hence the resulting pc label) will be 
+different depending on which branch is taken. If the ``true'' branch is taken, then we know that $x$ is 0, and hence we know 
+from the state assertion that its label is \lo{}. This means that the pc label is \lo{}, and so the output statement within 
+this branch will not leak high-security data. If the ``false'' branch is taken, however, then we can reason that the pc label 
+will be \hi{}, meaning that an output statement could result in a leaky program (e.g., if the value of $x$ were printed). This 
+program does not attempt to output anything within this branch, so it is still valid.
+
+Since the program is verified with respect to precondition $P$, the noninterference guarantee for this example says that if 
+we change any high-security event in Alice's calendar to any other high-security event (i.e., nonzero value), then the output 
+will be unaffected. In other words, an observer cannot infer any information about the scheduled events 
+in Alice's calendar.
+
+\begin{comment}
+\subsection{Example 2: Password-Protected Secret}
+
+Let us now consider an example that requires explicit declassification (and hence an isolated
+method). Figure~\ref{pwexample} shows the program. Alice has a secret value at location
+$A$ and a password to protect that secret at location $A+1$. She also designates location $A+2$
+to be the place where a \lo{} guess at the password will be submitted. Finally, location $A+3$
+contains a \lo{} boolean that will keep track of whether the guess and password are equal
+(comparing the two values directly taints the pc label with the password's \hi{} label, 
+while testing the value of the boolean keeps the pc label at \lo{}). Alice's policy is
+expressed by an object invariant saying that the password is \hi{}, the guess
+and boolean are \lo{}, and exactly one of the following two conditions must hold: (1)
+the password and guess are equal, the boolean is 1, and the secret's label is \lo{}; or
+(2) the password and guess are not equal, the boolean is 0, and the secret's label is \hi{}.
+
+Figures~\ref{pwverification1}, \ref{pwverification2}, and~\ref{pwverification3} show the
+verification of the client program, the setGuess method, and the getSecret method,
+respectively, using the policy described above. The setGuess method is the only isolated
+method in this program, and hence is the only place where explicit declassifications can 
+occur. We are still able to obtain an interesting segmented noninterference property for
+the program because, despite having explicit declassification privileges, the isolated
+method is still required to restore the object invariant.
+
+To understand the segmented noninterference property here, let us first consider what
+noninterference would say if there were no explicit declassification. We will ignore
+the client portion of the state for this discussion since it does not contain any 
+interesting high-security data. Pick some initial state satisfying the object invariant
+$I$. Then there are two possibilities:
+
+\paragraph{Case 1} In the initial state, the guess and password are equal, the boolean
+is 1, and the secret's label is \lo{}. The only \hi{} data in the object is the password.
+Yet if we change the password to any other value, $I$ will no longer hold since the guess
+and password will not be equal. Hence noninterference says absolutely nothing in this 
+situation. Indeed, a program can easily leak the password if we already know that it is
+equal to the guess~--- simply print out the guess!
+
+\paragraph{Case 2} In the initial state, the guess and password are not equal, the boolean
+is 0, and the secret's label is \hi{}. $I$ will still hold if we change the value of the
+password to any other value that is not equal to the guess~--- hence noninterference tells
+us that the only information about the password that can be leaked is the fact that it is
+not equal to the guess (which is a public value). Furthermore, $I$ will still hold if we
+change the value of the high-security secret to anything else. This means that no 
+information about the secret can be leaked.
+
+Now the segmented noninterference theorem says the following: if we pick either the initial
+state or any state in an execution that immediately follows a setGuess call, then the 
+execution will satisfy noninterference in the sense just described, up until setGuess is 
+called again. Note that this statement makes sense in part because we define the observable
+behavior of an execution in terms of its output, which is something that is produced 
+\emph{during} an execution~--- hence the observable behavior of a \emph{segment} of an 
+execution is perfectly well-defined.
+
+\begin{figure}[t]
+\begin{alltt}
+// Assumptions: 
+// Alice's secret is at location A, password at A+1, 
+//   guess at A+2, and boolean at A+3 saying whether 
+//   the guess and password are equal.
+// Location B contains Lo user input.
+
+1  x := [B];
+2  setGuess(x);
+3  y := getSecret();
+4  output y
+
+5  setGuess(x):
+6      [A+2] := x;
+7      y := [A+1];
+8      if (x = y)
+9          then
+10             classify [A] as Lo;
+11             [A+3] := 1;
+12             classify [A+3] as Lo
+13         else
+14             classify [A] as Hi;
+15             [A+3] = 0;
+16             classify [A+3] as Lo
+
+17 getSecret():
+18     x := [A+3];
+19     if (x = 1)
+20         then
+21             r := [A]
+22         else
+23             r := 0;
+24     return r
+\end{alltt}
+\caption{Example: Alice's Password-Protected Secret}
+\label{pwexample}
+\end{figure}
+
+\begin{figure}
+\begin{alltt}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo)\}}
+1  \codebox{x := [B];}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+2  \codebox{setGuess(x);}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo)\}}
+3  \codebox{y := getSecret();}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) y.lbl = Lo\}}
+4  \codebox{output y}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) y.lbl = Lo\}}
+\end{alltt}
+\caption{Alice's Password-Protected Secret: Verification of client code}
+\label{pwverification1}
+\end{figure}
+
+\begin{figure}
+\begin{alltt}
+I \(\isdef\) \(\exists\) s,p,g,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * 
+         A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)
+I'(p,g,b,l) \(\isdef\) (p = g \(\land\) b = 1 \(\land\) l = Lo) \(\lor\) 
+               (p \(\neq\) g \(\land\) b = 0 \(\land\) l = Hi)
+
+5  \codeboxdown{setGuess(x):}
+   \assertbox{  Lo \(\vdash\) \{I \(\land\) x = n \(\land\) x.lbl = Lo\}}
+6      \codeboxup{[A+2] := x;}
+7      \codeboxdown{y := [A+1];}
+   \assertbox{  Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) *
+            A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+            x = n \(\land\) x.lbl = Lo \(\land\) 
+            y = p \(\land\) y.lbl = Hi\}}
+8      \codeboxup{if (x = y)}
+9          \codeboxdown{then}
+   \assertbox{     Hi \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * 
+           A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) p = n\}}
+10             \codeboxup{classify [A] as Lo;}
+11             [A+3] := 1;
+12             \codeboxdown{classify [A+3] as Lo}
+   \assertbox{     Hi \(\vdash\) \{A \(\mapsto\) (s,Lo) * A+1 \(\mapsto\) (p,Hi) * 
+           A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (1,Lo) \(\land\) p = n\}}
+   \assertbox{     Hi \(\vdash\) \{I\}}
+13         \codebox{else}
+   \assertbox{     Hi \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * 
+           A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) p \(\neq\) n\}}
+14             \codeboxup{classify [A] as Hi;}
+15             [A+3] := 0;
+16             \codeboxdown{classify [A+3] as Lo}
+   \assertbox{     Hi \(\vdash\) \{A \(\mapsto\) (s,Hi) * A+1 \(\mapsto\) (p,Hi) * 
+           A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (0,Lo) \(\land\) p \(\neq\) n\}}
+   \assertbox{     Hi \(\vdash\) \{I\}}
+   \assertbox{  Lo \(\vdash\) \{I\}}
+\end{alltt}
+\caption{Alice's Password-Protected Secret: Verification of setGuess(x)}
+\label{pwverification2}
+\end{figure}
+
+\begin{figure}
+\begin{alltt}
+I \(\isdef\) \(\exists\) s,p,g,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * 
+         A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)
+I'(p,g,b,l) \(\isdef\) (p = g \(\land\) b = 1 \(\land\) l = Lo) \(\lor\) 
+               (p \(\neq\) g \(\land\) b = 0 \(\land\) l = Hi)
+               
+17 \codeboxdown{getSecret():}
+   \assertbox{  Lo \(\vdash\) \{I\}}
+18     \codebox{x := [A+3];}
+   \assertbox{  Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) *
+            A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+            I'(p,g,b,l) \(\land\) x = b \(\land\) x.lbl = Lo\}}
+19     \codeboxup{if (x = 1)}
+20         \codeboxdown{then}
+   \assertbox{     Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) *
+            A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+            (p = g \(\land\) b = 1 \(\land\) l = Lo)\}}
+21             \codebox{r := [A]}
+   \assertbox{     Lo \(\vdash\) \{I \(\land\) r.lbl = Lo\}}
+22         \codebox{else}
+   \assertbox{     Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * 
+            A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+            (p \(\neq\) g \(\land\) b = 0 \(\land\) l = Hi)\}}
+23             \codebox{r := 0;}
+   \assertbox{     Lo \(\vdash\) \{I \(\land\) r.lbl = Lo\}}
+   \assertbox{  Lo \(\vdash\) \{I \(\land\) r.lbl = Lo\}}
+24     \codeboxup{return r}
+\end{alltt}
+\caption{Alice's Password-Protected Secret: Verification of getSecret()}
+\label{pwverification3}
+\end{figure}
+\end{comment}
+
+\begin{comment}
+\begin{figure*}[h]
+\[I \isdef \exists s,p,g,b,l \such A \mapsto (s,l) * A+1 \mapsto (p,\hi{}) * A+2 \mapsto (g,\lo{}) * A+3 \mapsto (b,\lo{}) \land I'(p,g,b,l)\]
+\[I'(p,g,b,l) \isdef (p = g \land b = 1 \land l = \lo{}) \lor (p \neq g \land b = 0 \land l = \hi{})\]
+\vspace{2mm}
+
+\begin{alltt}
+// Assumptions: 
+// Alice's secret is at location A, password at A+1, guess at A+2,
+//   and boolean at A+3 saying whether the guess and password are equal.
+// Location B contains user input.
+
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo)\}}
+1  \codebox{x := [B];}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+2  \codebox{setGuess(x);}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo)\}}
+3  \codebox{y := getSecret();}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) y.lbl = Lo\}}
+4  \codebox{output y}
+   \assertbox{Lo \(\vdash\) \{B \(\mapsto\) (n,Lo) \(\land\) y.lbl = Lo\}}
+
+5  \codebox{setGuess(x):}
+   \assertbox{    Lo \(\vdash\) \{\(\exists\) s,p,g,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\)
+                       I'(p,g,b,l) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+   \assertbox{    Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+6      \codebox{[A+2] := x;}
+   \assertbox{    Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) x = n \(\land\) x.lbl = Lo\}}
+7      \codebox{y := [A+1];}
+   \assertbox{    Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+                       x = n \(\land\) x.lbl = Lo \(\land\) y = p \(\land\) y.lbl = Hi\}}
+8      \codebox{if (x = y)}
+9          \codebox{then}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+                       x = n \(\land\) x.lbl = Lo \(\land\) y = p \(\land\) y.lbl = Hi \(\land\) x = y\}}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) p = n\}}
+10             classify [A] as Lo;
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Lo) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) p = n\}}
+11             \codebox{[A+3] := 1;}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Lo) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (1,Hi) \(\land\) p = n\}}
+12             \codebox{classify [A+3] as Lo}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Lo) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (1,Lo) \(\land\) 
+                       (p = n \(\land\) 1 = 1 \(\land\) Lo = Lo)\}}
+   \assertbox{            Hi \(\vdash\) \{\(\exists\) s,p,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) 
+                       (p = g \(\land\) b = 1 \(\land\) l = Lo)\}}
+   \assertbox{            Hi \(\vdash\) \{\(\exists\) s,p,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)\}}
+13         \codebox{else}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) x = n \(\land\) x.lbl = Lo 
+                       \(\land\) y = p \(\land\) y.lbl = Hi \(\land\) x \(\neq\) y\}}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) p \(\neq\) n\}}
+14             \codebox{classify [A] as Hi;}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Hi) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) p \(\neq\) n\}}
+15             \codebox{[A+3] := 0;}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Hi) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (0,Hi) \(\land\) p \(\neq\) n\}}
+16             \codebox{classify [A+3] as Lo}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Hi) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (0,Lo) \(\land\) p \(\neq\) n\}}
+   \assertbox{            Hi \(\vdash\) \{A \(\mapsto\) (s,Hi) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (n,Lo) * A+3 \(\mapsto\) (0,Lo) \(\land\) (p \(\neq\) n \(\land\) 0 = 0 \(\land\) Hi = Hi)\}}
+   \assertbox{            Hi \(\vdash\) \{\(\exists\) s,p,g,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)\}}
+   \assertbox{    Lo \(\vdash\) \{\(\exists\) s,p,g,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)\}}
+
+17 \codebox{getSecret():}
+   \assertbox{    Lo \(\vdash\) \{\(\exists\) s,p,g,b,l . A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)\}}
+   \assertbox{    Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)\}}
+18     \codebox{x := [A+3];}
+   \assertbox{    Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)
+                        \(\land\) x = b \(\land\) x.lbl = Lo\}}
+19     \codebox{if (x = 1)}
+20         \codebox{then}
+   \assertbox{            Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)
+                        \(\land\) x = b \(\land\) x.lbl = Lo \(\land\) x = 1\}}
+   \assertbox{            Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) (p = g \(\land\) b = 1 \(\land\) l = Lo)\}}
+21             \codebox{r := [A]}
+   \assertbox{            Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) (p = g \(\land\) b = 1 \(\land\) l = Lo)
+                        \(\land\) r = s \(\land\) r.lbl = l\}}
+   \assertbox{            Lo \(\vdash\) \{I \(\land\) r.lbl = Lo\}}
+22         \codebox{else}
+   \assertbox{            Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) I'(p,g,b,l)
+                        \(\land\) x = b \(\land\) x.lbl = Lo \(\land\) x \(\neq\) 1\}}
+   \assertbox{            Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) (p \(\neq\) g \(\land\) b = 0 \(\land\) l = Hi)\}}
+23             \codebox{r := 0;}
+   \assertbox{            Lo \(\vdash\) \{A \(\mapsto\) (s,l) * A+1 \(\mapsto\) (p,Hi) * A+2 \(\mapsto\) (g,Lo) * A+3 \(\mapsto\) (b,Lo) \(\land\) (p \(\neq\) g \(\land\) b = 0 \(\land\) l = Hi)
+                        \(\land\) r = 0 \(\land\) r.lbl = Lo\}}
+   \assertbox{            Lo \(\vdash\) \{I \(\land\) r.lbl = Lo\}}
+   \assertbox{    Lo \(\vdash\) \{I \(\land\) r.lbl = Lo\}}
+24     \codebox{return r}
+\end{alltt}
+\caption{Example: Alice's Password-Protected Secret}
+\label{pwverification}
+\end{figure*}
+\end{comment}
+
+
+\begin{comment}
+\begin{figure*}
+\[\ttt{I} \isdef \Conv_{i=0}^{63} \, A+i \mapsto (n_i,l_i) \land n_i = 0 \iff l_i = \lo{}\]
+\newline
+
+\begin{alltt}
+// Assumption: Alice's calendar is a 64-element 
+// array beginning at location A
+
+   \{true\}
+1  i := 0;
+   \{0 \(\leq\) i \(\land\) i.lbl = Lo\}
+2  while (i < 64) do
+       \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo\}
+3      x := isFree(i);
+       \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) x = 1 \(\iff\) x.lbl = Lo\}
+4      if (x == 1)
+5          then 
+               \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) x = 1 \(\land\) x.lbl = Lo\}
+6              output i
+               \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) x = 1 \(\land\) x.lbl = Lo\}
+               \{i.lbl = Lo\}
+7          else 
+               \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) x \(\neq\) 1 \(\land\) x.lbl = Hi\}
+8              skip;
+               \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) x \(\neq\) 1 \(\land\) x.lbl = Hi\}
+               \{i.lbl = Lo\}
+       \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo\}
+9      i := i+1
+Figure~\ref{pwexample} shows another example that we would like to verify. In this example, Alice owns some
+secret data that she protects with a password. Her object contains three slots: the secret, the password, and a ``guess''
+slot where a user is expected to input a guess at the password. Alice's policy then says that her secret is high security
+as long as the guess and password are not equal; if at some point they become equal, then the secret should become low
+security. This example is different from the previous one because it requires explicit declassification. In the previous example,
+labels were conditional based on initial values, but no piece of data ever needed to change its label from \hi{} to \lo{}
+during execution. In this example, the secret does need to change from \hi{} to \lo{} (and then back to \hi{}) during execution.
+Both examples involve values whose labels depend on the current evaluation of some state predicate~--- the fundamental difference 
+is that the predicate can never change during an execution of the first example, while it can change during an execution of 
+the second. In this sense, a noninterference guarantee for the second example must be able to talk about high-security values
+that occur mid-execution, rather than just the high-security values of the initial state.
+
+One somewhat subtle fact to note about this example: although Alice only wants to declassify her secret when the guess
+and password are equal, she will actually need to declassify the password in this situation as well (as indicated by line 12). 
+From a technical standpoint, this is necessary because the if-statement at line 20 will taint the return value label 
+with the label of the password (stored in variable $y$). Intuitively, this is necessary because once the low-security 
+user guesses the password correctly, he in fact knows the exact value of the secret password, and so, semantically speaking, 
+it is really not a secret anymore. Continuing to treat it as a secret is therefore too conservative and will not allow us 
+to verify the program.
+       \{0 \(\leq\) i \(\land\) i.lbl = Lo\}
+   \{i \(\geq\) 64 \(\land\) i.lbl = Lo\}
+
+10 isFree(i):
+       \{0 \(\leq\) i < 64 \(\land\) i.lbl = Lo \(\land\) I\}
+11     x := [A+i];
+       \{x = n \(\land\) x.lbl = l \(\land\) n = 0 \(\iff\) l = Lo \(\land\) I\}
+12     if (x == 0)
+13         then
+               \{x = 0 \(\land\) x = n \(\land\) x.lbl = l \(\land\) n = 0 \(\iff\) l = Lo \(\land\) I\}
+               \{x = 0 \(\land\) x.lbl = Lo \(\land\) I\}
+14             y := 1;
+               \{y = 1 \(\land\) y.lbl = Lo \(\land\) I\}
+15         else
+               \{x \(\neq\) 0 \(\land\) x = n \(\land\) x.lbl = l \(\land\) n = 0 \(\iff\) l = Lo \(\land\) I\}
+               \{x \(\neq\) 0 \(\land\) x.lbl = Hi \(\land\) I\}
+16             y := 0;
+               \{y = 0 \(\land\) y.lbl = Hi \(\land\) I\}
+       \{y = 1 \(\iff\) y.lbl = Lo \(\land\) I\}
+17     return y
+\end{alltt}
+\caption{Calendar Example Verification}
+\label{calverification}
+\end{figure*}
+\end{comment}
+
+\begin{comment}
+\vspace{4mm}
+\begin{thm}[Termination-Sensitive Noninterference]
+Suppose we derive $\judg{j}{\lo}{P}{C}{Q}$ using the inference rules. Then, for any state $(s,h) \in P$ and any
+location $w$ in $h$ whose policy is never declassified in the low-machine execution starting from 
+$\pconfig{(s,h)}{C}$, if we change only the value at $w$ to obtain a state $(s,h') \in P$, then the 
+(possibly infinite) list of outputs produced by executing the base machine on $\pconfig{(s,h)}{C}$
+is identical to the outputs produced by executing on $\pconfig{(s,h')}{C}$.
+\end{thm}
+\end{comment}
+
+\begin{comment}
+The proof of soundness is straightforward; the Coq proof can be found at the companion website~\cite{ddifctr}.
+Note that, while soundness technically talks about the high and low machines, it can be trivially extended
+to talk about the base machine (which is ultimately what we are actually interested in reasoning about) by
+applying Theorem~\ref{bsemvalid} of Section~\ref{semantics}.
+
+The noninterference proof is also fairly straightforward (again, we have a Coq proof), given that we proved 
+the operational noninterference theorem of Section~\ref{noninterference}. The main job of the noninterference
+proof here is just to show that our inference rules do indeed guarantee the assumed side properties of 
+Section~\ref{noninterference} (\ttt{lsafe} and \exokt). Note that our final noninterference result is able
+to talk about the base machine by applying Theorem~\ref{bsemvalid}.
+\end{comment}

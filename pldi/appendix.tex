@@ -1,0 +1,488 @@
+\section{Appendix: Proof of Theorem~\ref{end-to-end}}
+\label{appendix}
+
+We present the full proof for transferring security across simulation here,
+even when the type of observations changes across machines. The definitions
+of machines and high-level security are identical to those presented in 
+Section~\ref{methodology}. The definition of low-level security is also
+the same, but we need to define whole-execution behaviors more formally.
+
+\begin{definition}[Behavioral State]
+Given a machine $M$ and a partial order $\preceq$ over the observation 
+type $\Omega_M$, we say that a program state $\sigma$ is behavioral
+for principal $l$, written $\behaviorals{M}{l}{\sigma}$,
+if all executions starting from $\sigma$ respect 
+the partial order; i.e., the following monotonicity property holds:
+\[\quad \forall \sigma' \such \sigma \steprel^* \sigma' 
+\Longrightarrow \observe{l}{\sigma} \preceq \observe{l}{\sigma'}\]
+\end{definition}
+
+\begin{definition}[Behavioral Machine]
+We say that a machine $M$ is behavioral for principal $l$, written 
+$\behavioral{M}{l}$, when the machine has the following components:
+\begin{itemize}
+\item a partial order $\preceq$ over the observation type $\Omega_M$
+\item a proof that all states of $M$ are behavioral for $l$
+\end{itemize}
+\end{definition}
+
+We will give a semiformal definition of whole-execution behaviors here. 
+The formal Coq definition involves a
+combination of inductive and coinductive types (to handle behaviors of
+both terminating and non-terminating executions). Note that our 
+definition is quite similar to the one used in CompCert~\cite{Leroy-backend},
+except that we use state observations as the basic building block, while 
+CompCert uses \emph{traces}, which are input/output events labeled on 
+transitions.
+\begin{definition}[Whole-Execution Behaviors]
+Given a machine $M$ with a partial order defined over $\Omega_M$,
+and a state $\sigma$ that is behavioral for 
+principal $l$, we write $\behavior{M;l}{\sigma}$ to represent the (potentially 
+infinite) set of whole-execution behaviors that can arise from some execution 
+of $M$ starting from $\sigma$. The behaviors (elements of this set) can 
+be one of four kinds: \emph{fault}, \emph{termination}, \emph{silent divergence},
+and \emph{reactive divergence}. In the following, variable $o$ ranges over 
+observations and $os$ ranges over infinite streams of observations:
+\begin{enumerate}
+\item $\ttt{Fault}(o) \in \behavior{M;l}{\sigma}$ indicates that there
+is an execution $\sigma~\steprel^*~\sigma'$ where $\sigma'$ is not
+a final state, $\sigma'$ cannot take a step to any state, and 
+$o = \observe{l}{\sigma'}$.
+\item $\ttt{Term}(o) \in \behavior{M;l}{\sigma}$ indicates that there
+is an execution $\sigma~\steprel^*~\sigma'$ where $\sigma'$ is 
+a final state and $o = \observe{l}{\sigma'}$.
+\item $\ttt{Silent}(o) \in \behavior{M;l}{\sigma}$ indicates that there
+is an execution $\sigma~\steprel^*~\sigma'$ where $o = \observe{l}{\sigma'}$
+and there is an infinite execution starting from $\sigma'$ for which all
+states in that infinite execution have identical observations.
+\item $\ttt{React}(os) \in \behavior{M;l}{\sigma}$ indicates that there
+is an infinite execution starting from $\sigma$ that ``produces'' each of the
+infinitely-many observations of $os$ in order. An observation $o$ is ``produced'' 
+in an execution when there exists some single step in the execution 
+$\sigma'~\steprel~\sigma''$ with $o = \observe{l}{\sigma''}$ and 
+$\observe{l}{\sigma'} \neq \observe{l}{\sigma''}$.
+\end{enumerate}
+\end{definition}
+
+Next we define simulations that can relate machines with different 
+observation types. As a first attempt, we start with the same 
+simulation definition as presented in Section~\ref{methodology}, but 
+we introduce a second relation that relates observations of one machine 
+to observations of the other.
+
+\begin{definition}[Generalized Simulation, Attempt 1]
+Given two machines $M$, $m$, a principal $l$, a relation $R$ between
+states of $M$ and states of $m$, and a relation $\obsrelr{R}$ between
+observations of $M$ and observations of $m$, we say that there is a
+simulation from $M$ to $m$ using $R$ and $\obsrelr{R}$,
+written $\simu{M}{m}{R;\obsrelr{R};l}$, when:
+{\small
+\begin{align*}
+& 1.) \quad \forall \sigma, \sigma' \in \Sigma_M, \,\, s \in \Sigma_m \such \\
+& \qquad \quad \sigma \steprel \sigma' \land R(\sigma,s) \\
+& \qquad \quad \Longrightarrow 
+\exists s' \in \Sigma_m \such s \steprel^* s' \land R(\sigma',s') \\
+& 2.) \quad \forall \sigma \in \Sigma_M, \,\, s \in \Sigma_m \such \\
+& \qquad \quad \sigma \in F_M \land R(\sigma,s) \Longrightarrow s \in F_m \\
+& 3.) \quad \forall \sigma \in \Sigma_M, \,\, s \in \Sigma_m \such \\
+& \qquad \qquad R(\sigma,s) \Longrightarrow \obsrelr{R}(\observem{M}{l}{\sigma},\observem{m}{l}{s}) \\
+& 4.) \quad \forall \sigma_1, \sigma_2 \in \Sigma_M, \,\, s_1, s_2 \in \Sigma_m \such \\
+& \qquad \qquad \observem{M}{l}{\sigma_1} = \observem{M}{l}{\sigma_2} \\
+& \qquad \qquad \land \obsrelr{R}(\observem{M}{l}{\sigma_1},\observem{m}{l}{s_1}) \\
+& \qquad \qquad \land \obsrelr{R}(\observem{M}{l}{\sigma_2},\observem{m}{l}{s_2}) \\
+& \qquad \qquad \Longrightarrow \observem{m}{l}{s_1} = \observem{m}{l}{s_2}
+\end{align*}}
+\end{definition}
+
+\noindent{}The first two properties are identical to those of the simulation
+definition presented in Section~\ref{methodology}, while the third and
+fourth properties are a simplification of the indistinguishability
+preservation property. Notice that these two properties together trivially 
+imply indistinguishability preservation; thus this definition is a
+stricter form of simulation.
+
+It turns out that we can simplify this definition significantly. The fourth
+property above actually just states that $\obsrelr{R}$ always relates equal
+inputs to equal outputs; i.e., $\obsrelr{R}$ can only relate a high-level
+observation to at most one low-level observation. If we enforce a minor 
+requirement that $\obsrelr{R}$ always relates a high-level observation to
+\emph{at least} one low-level observation, then we can reformulate the relation
+as a function, resulting in a significantly simpler simulation definition:
+
+\begin{definition}[Generalized Simulation]
+\label{gensimdef}
+Given two machines $M$, $m$, a principal $l$, a relation $R$ between
+states of $M$ and states of $m$, and a function $\obsrel{R}$ from
+observations of $M$ to observations of $m$, we say that there is a
+simulation from $M$ to $m$ using $R$ and $\obsrel{R}$,
+written $\simu{M}{m}{R;\obsrel{R};l}$, when:
+{\small
+\begin{align*}
+& 1.) \quad \forall \sigma, \sigma' \in \Sigma_M, \,\, s \in \Sigma_m \such \\
+& \qquad \quad \sigma \steprel \sigma' \land R(\sigma,s) \\
+& \qquad \quad \Longrightarrow 
+\exists s' \in \Sigma_m \such s \steprel^* s' \land R(\sigma',s') \\
+& 2.) \quad \forall \sigma \in \Sigma_M, \,\, s \in \Sigma_m \such \\
+& \qquad \quad \sigma \in F_M \land R(\sigma,s) \Longrightarrow s \in F_m \\
+& 3.) \quad \forall \sigma \in \Sigma_M, \,\, s \in \Sigma_m \such \\
+& \qquad \qquad R(\sigma,s) \Longrightarrow 
+\obsrel{R}(\observem{M}{l}{\sigma}) = \observem{m}{l}{s}
+\end{align*}}
+\end{definition}
+
+We next define a bisimulation, and state a lemma that reformulates 
+high-level security as a bisimulation (the proof is omitted here, but
+it is completely straightforward).
+
+\begin{definition}[Bisimulation]
+\label{bisimdef}
+Given two machines $M$, $m$, a principal $l$, a relation $R$ between
+states of $M$ and states of $m$, and an \emph{invertible} function 
+$\obsrel{R}$ from observations of $M$ to observations of $m$, 
+we say that there is a bisimulation from $M$ to $m$ using $R$ and 
+$\obsrel{R}$, written $\bisimu{M}{m}{R;\obsrel{R};l}$, when
+$\simu{M}{m}{R;\obsrel{R};l}$ and $\simu{m}{M}{R^{-1};\obsrel{R}^{-1};l}$.
+\end{definition}
+
+\begin{definition}[Invariant-Aware Indistinguishability]
+{\small
+\begin{align*}
+& \Theta^{I}_l(\sigma_1,\sigma_2) \isdef 
+\sigma_1 \in I \land \sigma_2 \in I \land
+\observe{l}{\sigma_1} = \observe{l}{\sigma_2}
+\end{align*}}
+\end{definition}
+
+\begin{lem}[High-Level Security Bisimulation]
+\label{secure-bisim}
+{\small
+\begin{align*}
+& \forall M, I, l \such \secure{M}{I}{l} \Longrightarrow 
+\bisimu{M}{M}{\Theta^{I}_l;\mathid;l}
+\end{align*}}
+\end{lem}
+
+The next step is to define the method of comparing sets of behaviors
+between machines that have different observation types.
+In the following, we will overload the $\obsrel{R}$ function to apply
+to behaviors in the obvious way 
+(e.g., $\obsrel{R}(\ttt{Term}(o)) = \ttt{Term}(\obsrel{R}(o))$).
+Given a simulation $\simu{M}{m}{R;\obsrel{R};l}$, with both $M$ and
+$m$ behavioral for $l$, we define subset and equality relations 
+between sets of behaviors by applying $\obsrel{R}$ to every element 
+of the first set:
+\begin{definition}[Behavior Subset]
+\label{beh-subset}
+{\small
+\begin{align*}
+& \simu{\behavior{M;l}{\sigma}}{\behavior{m;l}{s}}{\obsrel{R}}
+\isdef \\
+& \qquad \forall b \such b \in \behavior{M;l}{\sigma} \Longrightarrow
+\obsrel{R}(b) \in \behavior{m;l}{s}
+\end{align*}}
+\end{definition}
+
+\begin{definition}[Behavior Equality]
+\label{beh-equality}
+{\small
+\begin{align*}
+& \bisimu{\behavior{M;l}{\sigma}}{\behavior{m;l}{s}}{\obsrel{R}}
+\isdef \\
+& \qquad \forall b \such b \in \behavior{M;l}{\sigma} \iff
+\obsrel{R}(b) \in \behavior{m;l}{s}
+\end{align*}}
+\end{definition}
+
+\noindent
+Note that this equality relation is asymmetric since $\obsrel{R}$ can only
+apply to behaviors in the first set, and $\obsrel{R}$ is not guaranteed
+to have an inverse.
+
+We now state some important lemmas relating behaviors and simulations,
+omitting proofs here. For the most part, the proofs are reasonably 
+straightforward, requiring some standard case analyses, as well as 
+applications of induction and coinduction hypotheses. We begin with
+notations for the standard properties of safety and determinism, and
+then we state the various lemmas using these notations.
+
+\begin{definition}[Safety]
+We say that a machine $M$ is safe under state predicate $I$, 
+written $\safe{M}{I}$, when the following progress and
+preservation properties hold:
+{\small
+\begin{align*}
+& 1.) \quad \forall \sigma \in I - F_M \such
+\exists \sigma' \such \sigma \steprel \sigma' \\
+& 2.) \quad \forall \sigma, \sigma' \such
+\sigma \in I \land
+\sigma \steprel \sigma' \Longrightarrow \sigma' \in I
+\end{align*}}
+\end{definition}
+
+\begin{definition}[Determinism]
+We say that a machine $M$ is deterministic, written $\determ{M}$,
+when the following properties hold:
+{\small
+\begin{align*}
+& 1.) \quad \forall \sigma, \sigma', \sigma'' \such
+\sigma \steprel \sigma' \land \sigma \steprel \sigma''
+\Longrightarrow \sigma' = \sigma'' \\
+& 2.) \quad \forall \sigma \in F_M \such
+\lnot \, \exists \sigma' \such \sigma \steprel \sigma'
+\end{align*}}
+\end{definition}
+
+\begin{lem}[Behavior Exists]
+\label{beh-exists}
+{\small
+\begin{align*}
+& \forall M, l, \sigma \such \behaviorals{M}{l}{\sigma}
+\Longrightarrow
+\behavior{M;l}{\sigma} \neq \emptyset
+\end{align*}}
+\end{lem}
+
+\begin{lem}[Behavior Determinism]
+\label{beh-det}
+{\small
+\begin{align*}
+& \forall M, l, \sigma \such 
+\behaviorals{M}{l}{\sigma} \land \determ{M} \Longrightarrow
+| \behavior{M;l}{\sigma} | = 1
+\end{align*}}
+\end{lem}
+
+\begin{comment}
+\begin{lem}[Behavior Safety]
+\begin{align*}
+& \forall M, I, l, \sigma \such \\
+& \qquad \behaviorals{M}{l}{\sigma} \land \safe{M}{I} \land \sigma \in I \\
+& \qquad \Longrightarrow 
+\forall o \such \ttt{Fault}(o) \notin \behavior{M;l}{\sigma}
+\end{align*}
+\end{lem}
+\end{comment}
+
+\begin{lem}[Simulation Implies Behavior Subset]
+\label{beh-sim-subset}
+{\small
+\begin{align*}
+& \forall M, m, I, R, 
+\obsrel{R},
+l, \sigma, s \such \\
+& \qquad
+\behaviorals{M}{l}{\sigma} \land \behaviorals{m}{l}{s} \\
+& \qquad \land \safe{M}{I} \land 
+\simu{M}{m}{R;\obsrel{R};l}
+\land \sigma \in I \land R(\sigma,s) \\
+& \qquad \Longrightarrow 
+\simu{\behavior{M;l}{\sigma}}{\behavior{m;l}{s}}{\obsrel{R}}
+\end{align*}}
+\end{lem}
+
+\begin{lem}[Bisimulation Implies Behavior Equality]
+\label{beh-bisim}
+{\small
+\begin{align*}
+& \forall M, m, R, 
+\obsrel{R},
+l, \sigma, s \such \\
+& \qquad
+\behaviorals{M}{l}{\sigma} \land \behaviorals{m}{l}{s} \\
+& \qquad \land 
+\bisimu{M}{m}{R;\obsrel{R};l} \land R(\sigma,s) \\
+& \qquad \Longrightarrow 
+\bisimu{\behavior{M;l}{\sigma}}{\behavior{m;l}{s}}{\obsrel{R}}
+\end{align*}}
+\end{lem}
+
+\noindent
+Finally, we state\cut{ and prove} the end-to-end security theorem. \cut{
+We
+assume there is a specification machine $M$ that is secure for 
+principal $l$ under invariant $I$, a deterministic implementation 
+machine $m$ that is behavioral for $l$, and a simulation from 
+$M$ to $m$. The theorem then says that
+if we take any two indistinguishable states $\sigma_1$,
+$\sigma_2$ of $M$ (which satisfy $I$), and relate them down
+to two states $s_1$, $s_2$ of $m$, then the whole-execution
+behaviors of $s_1$ and $s_2$ are equal. Note that we require
+the implementation to be deterministic~--- this is a reasonable
+requirement since the implementation is supposed to represent
+the real machine execution, and real machines are deterministic.
+Crucially, the specification may still be nondeterministic.
+
+}Since the statement of this theorem is a bit unwieldy, we 
+will reformulate it below to directly express that
+high-level security implies low-level security (like we
+do in Section~\ref{methodology}).
+
+\begin{thm}[Generalized End-to-End Security]
+{\small
+\begin{align*}
+& \forall M, m, I, R, 
+\obsrel{R},
+l, \sigma_1, \sigma_2, s_1, s_2 \such \\
+& \qquad \secure{M}{I}{l} \land \behavioral{m}{l} \land \determ{m} \land
+\simu{M}{m}{R;\obsrel{R};l} \\
+& \qquad \land \sigma_1 \in I \land \sigma_2 \in I \land
+\observem{M}{l}{\sigma_1} = \observem{M}{l}{\sigma_2} \\
+& \qquad \land R(\sigma_1,s_1) \land R(\sigma_2,s_2) \\
+& \qquad \Longrightarrow
+\behavior{m;l}{s_1} = \behavior{m;l}{s_2}
+\end{align*}}
+\end{thm}
+
+\begin{proof}
+We prove this theorem by defining a new machine $N$ in between $M$
+and $m$, and proving simulations from $M$ to $N$ and from $N$
+to $m$. $N$ will mimic $M$ in terms of program states
+and transitions, while it will mimic $m$ in terms of observations.
+More formally, we define $N$ to have the following components:
+\begin{itemize}
+\item program state $\Sigma_M$
+\item initial states $I_M$
+\item final states $F_M$
+\item transition relation $T_M$
+\item observation type $\Omega_m$
+\item observation function 
+$\observem{N}{l}{\sigma} \isdef \obsrel{R}(\observem{M}{l}{\sigma})$
+\end{itemize}
+
+First, we establish the simulation $\simu{M}{N}{\mathid;\obsrel{R};l}$.
+Referring to Definition~\ref{gensimdef}, the first two properties hold
+trivially since $N$ has the same transition relation and final
+state set as $M$. The third property reduces to exactly our
+definition of $\observem{N}{l}{-}$ given above.
+
+Next, we establish the simulation $\simu{N}{m}{R;\mathid;l}$. The
+first two properties of Definition~\ref{gensimdef} are exactly
+the same as the first two properties of the provided simulation
+$\simu{M}{m}{R;\obsrel{R};l}$, and thus they hold. For the third
+property, assuming we know $R(\sigma,s)$, we have 
+$\mathid(\observem{N}{l}{\sigma}) = 
+\observem{N}{l}{\sigma} = \obsrel{R}(\observem{M}{l}{\sigma})
+= \observem{m}{l}{s}$, where the final equality comes from
+the third property of the provided simulation.
+
+The next step is to relate the behaviors of $N$ with those of
+$m$. In order to do this, we first must show that $N$ has 
+well-defined behaviors for executions starting from $\sigma_1$
+or $\sigma_2$. In other words, we must prove 
+$\behaviorals{N}{l}{\sigma_1}$ and $\behaviorals{N}{l}{\sigma_2}$.
+We will focus on the proof for $\sigma_1$; the other proof is
+analogous. We use the same partial order as provided
+by the assumption $\behavioral{m}{l}$.
+Consider any execution $\sigma_1~\steprel^*~\sigma_1'$ in $N$.
+Since $R(\sigma_1,s_1)$, we can use the simulation 
+$\simu{N}{m}{R;\mathid;l}$ established above, yielding an execution
+$s_1~\steprel^*~s_1'$, for some $s_1'$ (technically, the simulation 
+property only applies to single steps in the higher machine; 
+however, it can easily be extended to multiple steps
+through induction on the step relation). Additionally, we have 
+$R(\sigma_1,s_1)$ and $R(\sigma_1',s_1')$, implying by the third property 
+of simulation that $\observem{N}{l}{\sigma_1} = \observem{m}{l}{s_1}$ and 
+$\observem{N}{l}{\sigma_1'} = \observem{m}{l}{s_1'}$.
+Since $m$ is behavioral, we also have 
+$\observem{m}{l}{s_1}~\preceq~\observem{m}{l}{s_1'}$. Hence we conclude
+$\observem{N}{l}{\sigma_1}~\preceq~\observem{N}{l}{\sigma_1'}$, as desired.
+
+We now know that $\behaviorals{N}{l}{\sigma_1}$ and 
+$\behaviorals{N}{l}{\sigma_2}$. Notice that
+when $\obsrel{R}$ is $\mathid$, our definitions of behavior subset and
+equality (Definitions~\ref{beh-subset} and~\ref{beh-equality}) reduce
+to standard subset and set equality. Therefore, applying 
+Lemma~\ref{beh-sim-subset} to the established simulation
+$\simu{N}{m}{R;\mathid;l}$ tells us that 
+$\behavior{N;l}{\sigma_1}~\subseteq~\behavior{m;l}{s_1}$
+and $\behavior{N;l}{\sigma_2}~\subseteq~\behavior{m;l}{s_2}$ (note that
+the safety precondition of Lemma~\ref{beh-sim-subset} holds because $M$ and $N$
+have the same state type and transition relation). Furthermore,
+since $m$ is deterministic, Lemma~\ref{beh-det} gives us 
+$| \behavior{m;l}{s_1} | = | \behavior{m;l}{s_2} | = 1$. Since 
+Lemma~\ref{beh-exists} guarantees that neither $\behavior{N;l}{\sigma_1}$ nor
+$\behavior{N;l}{\sigma_2}$ is empty, we conclude that
+$\behavior{N;l}{\sigma_1} = \behavior{m;l}{s_1}$
+and $\behavior{N;l}{\sigma_2} = \behavior{m;l}{s_2}$.
+
+To complete the proof, we now just need to show that 
+$\behavior{N;l}{\sigma_1} = \behavior{N;l}{\sigma_2}$. Recall
+Lemma~\ref{secure-bisim}, which expresses a security proof as 
+a bisimulation. Extending that lemma with an observation relation
+of $\mathid$, we have the bisimulation $\bisimu{M}{M}{\Theta^{I}_l;\mathid;l}$.
+We would like to apply Lemma~\ref{beh-bisim}, but we first need
+to convert this bisimulation into one on $N$, since $M$ is not
+behavioral. Since $M$ and $N$ share program state type, final states,
+and transition relation, it is not difficult to see that the first
+two required properties of the simulation $\simu{N}{N}{\Theta^{I}_l;\mathid;l}$ 
+hold. If we can establish the third property, then we will obtain the
+desired bisimulation $\bisimu{N}{N}{\Theta^{I}_l;\mathid;l}$ since $\mathid$ 
+is obviously invertible and $\Theta^{I}_l$ is symmetric. The third
+property requires us to prove that 
+$\Theta^{I}_l(\sigma_1,\sigma_2) \Longrightarrow 
+\observem{N}{l}{\sigma_1} = \observem{N}{l}{\sigma_2}$.
+By definition, $\Theta^{I}_l(\sigma_1,\sigma_2)$ implies that
+$\observem{M}{l}{\sigma_1} = \observem{M}{l}{\sigma_2}$.
+Notice that $\observem{N}{l}{\sigma_1} = \observem{N}{l}{\sigma_2}$
+following from this fact is exactly the indistinguishability 
+preservation property we discussed earlier. Indeed, utilizing the 
+third property of the established simulation 
+$\simu{M}{N}{\mathid;\obsrel{R};l}$, we
+have $\observem{N}{l}{\sigma_1} = \obsrel{R}(\observem{M}{l}{\sigma_1}) = 
+\obsrel{R}(\observem{M}{l}{\sigma_2}) = \observem{N}{l}{\sigma_2}$.
+
+Finally, we instantiate Lemma~\ref{beh-bisim} with both machines
+being $N$. Notice that we technically need to establish the
+precondition of $\Theta^{I}_l(\sigma_1,\sigma_2)$ before we can 
+apply the lemma. By definition, this reduces to 
+$\sigma_1~\in~I \land \sigma_2~\in~I \land 
+\observem{N}{l}{\sigma_1}~=~\observem{N}{l}{\sigma_2}$.
+The first two facts hold by assumption, and the third one
+follows from $\observem{M}{l}{\sigma_1} = \observem{M}{l}{\sigma_2}$ 
+by exactly the same reasoning we just used above.
+Now, applying Lemma~\ref{beh-bisim} yields the conclusion
+$\bisimu{\behavior{N;l}{\sigma_1}}{\behavior{N;l}{\sigma_2}}{\mathid}$.
+As mentioned earlier, behavior equality reduces to standard set
+equality when $\obsrel{R}$ is $\mathid$, and so we get the desired
+$\behavior{N;l}{\sigma_1} = \behavior{N;l}{\sigma_2}$, completing
+the proof.
+\end{proof}
+
+To reformulate the theorem, we wrap up many of the preconditions
+into a low-level indistinguishability relation. The relation
+is parameterized by a high-level machine, a principal, a high-level
+invariant, and a simulation relation. It says that two low-level
+states are indistinguishable if we can find two indistinguishable
+high-level states that are related via the simulation relation.
+
+\begin{definition}[Low-Level Indistinguishability]
+{\small
+\begin{align*}
+& \phi(M,l,I,R) \isdef \\
+& \quad \lambda s_1, s_2 \such \exists \sigma_1, \sigma_2 \in I \such \\
+& \quad \quad \observem{M}{l}{\sigma_1} = \observem{M}{l}{\sigma_2} 
+\land R(\sigma_1,s_1) \land R(\sigma_2,s_2)
+\end{align*}}
+\end{definition}
+
+\noindent
+End-to-end security is now reformulated to explicitly say that
+high-level security implies low-level security.
+
+\begin{cor}[Generalized End-to-End Security, Final]
+{\small
+\begin{align*}
+& \forall M, m, I, R, 
+\obsrel{R},
+l \such \\
+& \qquad \behavioral{m}{l} \land \determ{m} \land 
+\simu{M}{m}{R;\obsrel{R};l} \\
+& \qquad \Longrightarrow 
+\left(\secure{M}{I}{l} \Longrightarrow \bsecure{m}{\phi(M,l,I,R)}{l}\right)
+\end{align*}}
+\end{cor}
+
+
+
+
+

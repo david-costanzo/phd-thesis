@@ -1,0 +1,231 @@
+\label{policies-chapter}
+This chapter will semiformally set up the context for discussing the 
+verification of information-flow security.
+
+\section{Principals and Policies}
+\label{example-policies}
+
+As a starting point, we will assume we have a complex system like the one shown
+in Figure~\ref{osmach}, which is composed of many lines of both C and assembly code.
+We wish to prove the end-to-end property that, when the C code is compiled into 
+assembly and linked with the existing assembly code, the resulting system 
+executes \emph{securely}. More specifically, we will prove that a system executes
+securely with respect to a particular \emph{principal's} point-of-view; this particular
+principal is called the \emph{observer}. Principals
+represent actors or users of the system (e.g., processes $P1$ and $P2$ are principals
+of the system in Figure~\ref{osmach}), and we will assume they come from some
+abstract set $\princ{}$.
+
+For each potential observer $p$, we will specify a \emph{security policy} describing 
+precisely how information can flow to $p$. A system is then deemed secure if and only if 
+it obeys all observers' policies. The exact formalization of a security policy 
+represents a major challenge in any information-flow system. To support real-world
+systems, it is crucial that policies allow for certain well-specified flows of 
+information (e.g., declassifications); however, it is in general not obvious how
+to define an end-to-end security guarantee with respect to such lenient policies.
+To develop some intuition regarding this challenge, we will now consider some
+example security policies that are important to support.
+
+\paragraph{Public Parity}
+Suppose principal Alice owns some secret value $v$. Alice wishes to release
+only a single bit of her secret publicly, the parity $v\%2$. Describing this
+as a somewhat more formal security policy, we say that the observations made by 
+any observer $p$ (excluding Alice) must not be influenced by anything relating 
+to $v$ other than its parity. In this way, a security policy should be viewed as
+a \emph{restriction} that disallows certain flows of information. The 
+noninterference property defining this restriction says: if we were to
+change Alice's secret from $v$ to any other value $w$ with $v\%2 = w\%2$,
+then observer $p$ would make identical observations over the system executing
+with secret $w$ as it does over the execution with secret $v$.
+
+Notice that
+there is some implicit subtlety in the described policy: if an observer can 
+learn the value $v\%2$, then clearly he can also learn, for example, the value 
+$(v+1)\%2$. This implicitly-derived kind of information flow can become difficult
+to understand for extremely complex policies; we will assume throughout the
+dissertation that it is the system specifier's burden to write a policy that
+is simple enough for users of the system to fully comprehend.
+
+\paragraph{Public Average}
+Suppose Alice runs a company and stores all employees' salaries in a database.
+One reasonable security policy is to publicly release only the average of these 
+salaries. That is, there should be no flow of information from the salaries to 
+public observers other than the average salary. As a noninterference statement,
+this means that if we were to change the values of any subset of salaries in
+such a way that the overall average remains the same, then a public observer
+would not see any change in observation. Furthermore, one might reasonably
+extend the policy to apply to an employee $p$ of the company by allowing $p$
+to learn information only about $p$'s own salary, in addition to the average
+salary. Note that, once again, there is some implicit information embedded
+in this policy: if, for example, $p$ happens to know that there are only two employees in
+total at the company, then he can learn the exact value of the other employee's
+salary just by looking at his own salary along with the average. Thus this
+policy would only be a reasonable one for security purposes if there were many 
+employees at the company.
+
+\paragraph{Shared Calendar}
+As a more intricate example, suppose Alice owns a calendar on which she
+marks down the details of various events occurring at various time slots.
+Further suppose that Alice wishes to expose an API for her calendar that
+allows other principals to schedule a meeting with her at an open time slot.
+What kind of security policy might Alice wish to enforce over her calendar?
+An initial guess might be that Alice should not release any information
+about her calendar; this is incompatible with the desired API, however, since
+a principal who successfully schedules a meeting with Alice will obviously
+learn that the scheduled time was available in her calendar. Instead, a
+more reasonable policy is that a caller of Alice's API can learn which time
+slots are available/unavailable in the calendar, but cannot learn any 
+information about the events contained within the unavailable slots.
+
+In terms of noninterference, this policy says that if we were to arbitrarily
+change the events within Alice's calendar without changing any times at
+which those events occur, then a caller of Alice's API would not observe any
+difference. One example implementation that clearly satisfies this security
+policy is for Alice to always schedule the first available time slot.
+
+\paragraph{Dynamic Label Tainting}
+One common and important example involves attaching security labels to 
+principals and data within a system, and then dynamically propagating 
+(``tainting'') these labels 
+as the system executes. Many existing security frameworks are based upon
+this scheme~\cite{stuff,stuff,stuff}. Security labels are arranged into
+a lattice structure where, for example, $L_1 \sqsubseteq L_2$ means that the
+security level $L_2$ is ``at least as secure as'' level $L_1$. An element of
+this lattice is assigned to each principal and each piece of data
+within the system. The standard security policy is then that information is 
+only allowed to flow up this lattice~--- that is, an observer $p$ with
+label $L_p$ can only learn information about data with label less than or
+equal to $L_p$ in the lattice. As a noninterference statement, this means 
+that changing any data with a label $L \not\sqsubseteq L_p$ will
+not affect $p$'s observation.
+
+A simple method for enforcing this security policy is to dynamically 
+taint data as it propagates during an execution. For example,
+if the program $z = x + y$ executes, then the resulting security label 
+of $z$ will be assigned the least upper bound ($\sqcup$) of the labels 
+of $x$ and $y$. In this way, the system can automatically guarantee that
+the resulting value of $z$ can flow to some principal $p$ (i.e., 
+$L_x \sqcup L_y \sqsubseteq L_p$) if and only if the values of $x$ and $y$ 
+can also flow to $p$ (i.e., $L_x \sqsubseteq L_p$ and $L_y \sqsubseteq L_p$).
+
+
+
+
+\begin{comment}
+\section{Principals and Labels}
+
+We begin our formalization with an abstract notion of \emph{principals}. The set of principals
+$P$ represents the set of actors, or users, of a system. Whenever we talk about a 
+system being ``secure'', the security is relative to a principal. That is, a system may be secure 
+for one principal Alice, but not for another principal Bob. The set of principals is abstract, in
+the sense that its definition will depend on the context of the system that we wish to prove secure.
+For example, in the context of mCertiKOS (\chapref{certikos}), the principals are the IDs of the
+user processes executing on top of the operating system.
+
+Given a set of principals $P$, we next define a concept of ``security labels''. When
+discussing how information flows from one place to another, it is helpful to formalize these
+``places'' as a lattice (ordering) of \emph{labels}. For example, in the context of the military, 
+information is separated into linearly-ordered clearance levels, such as ``Controlled Unclassified'', 
+``Confidential'', ``Secret'', and ``Top Secret''. One can imagine that all data is labeled with
+one of these clearance levels, and decisions regarding whether a principal can read/write
+such data are made by using these labels.
+
+There are many possible label lattices to choose from, such as the linear confidentiality
+lattice of the Bell-LaPadula model~\cite{bell-lapadula}, the linear integrity lattice of
+the Biba model~\cite{biba}, or the more intricate lattice of the Myers-Liskov decentralized
+model~\cite{myers-liskov}. The recent work by Montagu et. al.~\cite{pierce-labels} provides
+an excellent overview of various label models and their relationships. For our context,
+the choice of label lattice is largely orthogonal to our goals, so we will choose a 
+simple but expressive one, used in the Flume system~\cite{flume}, that can be defined directly 
+in terms of the principal set $P$.
+
+Formally, a \emph{label} is a finite set of principals. The security label lattice is ordered
+according to the subset relation: the higher a label is in the lattice, the higher the security
+level it represents. For example, the label $\emptyset$ represents a globally public security 
+level, the label $\{\text{Alice}\}$ represents a security level that is accessible to Alice
+and no one else, and the label $\{\text{Alice},\text{Bob}\}$ represents a security level that
+is not directly accessible to any principal, but can be \emph{declassified} by Alice to become 
+accessible to Bob (or vice-versa). Note that this label model is sometimes called the 
+``taint model'' because it facilitates reasoning about information tainting: if a piece of
+data is labeled with $l$ and Alice performs some operation involving the data, then the result
+of the operation will become ``tainted'' by Alice, with a label of $l \cup \{\text{Alice}\}$.
+
+
+\section{Abstract Machine, Observations, and Behaviors}
+
+Now that we have defined our notion of separating data into different security levels, we
+can describe how a machine might manipulate such data. An \emph{abstract machine} $M$ 
+consists of the following components:
+\begin{itemize}
+\item a type $\Sigma_M$ of program state
+\item a set of initial states $I_M$
+\item a set of final states $F_M$
+\item a transition relation (a.k.a. action or semantics) $A_M$ of type 
+$\pwrset{\Sigma_M \times \Sigma_M}$
+\end{itemize}
+We will omit the subscript $M$ when it is obvious from context. We will write
+$\sigma \steprel \sigma'$ as shorthand for $(\sigma,\sigma') \in A_M$ when the
+transition relation is obvious from context. We will also write 
+$\sigma \steprel^* \sigma'$ to represent the reflexive, transitive closure of
+the transition relation.
+
+To make the machine security-aware, we also define an abstract notion of 
+\emph{observation} on program states. Intuitively, for any label $l$ and state 
+$\sigma$, some part of $\sigma$ will be observed at security level $l$; we write
+this as $\observe{l}{\sigma}$. The type of observation is left completely abstract.
+The most common example of observation type is an output 
+buffer to a screen~--- whenever a program executing at security level $l$ outputs some values,
+those values are taken to be observed by a user at level $l$. Note that we will often write
+$\observe{p}{\sigma}$ for some principal $p$ as shorthand for $\observe{\{p\}}{\sigma}$;
+thus $\observe{\text{Alice}}{\sigma}$ represents the buffer of values that have 
+been printed to Alice's screen.
+
+Notice that our notion of observation is quite similar to the traditional notion of
+output events. The main difference is that output events are expressed as external labels 
+on the transition relation, while observations are expressed internally as part of the 
+program state (i.e., an observation is actually the entire list of output events that
+have occurred thus far in the execution). We have found that expressing outputs
+within the program state tends to yield more readable and easier proofs, and thus
+we advocate the approach throughout this dissertation.
+
+While the observation function describes what has been observed at a particular state
+during an execution, in order to talk about security of a machine execution, we 
+will ultimately need to reason about what will be observed across
+the entirety of an execution. To facilitate such reasoning, we define a notion of
+whole-execution \emph{behavior}. Before we can define this sensibly, we first must 
+require that observations behave \emph{monotonically}. That is, once something is
+observed during an execution, it must remain observed for the remainder of the execution.
+Using the example of output buffer, this makes perfect sense: once a value is printed
+to a user's screen, there is clearly no way to ``unprint'' the value and make the user 
+forget that he or she observed it. Formally, we require a partial order to be defined
+over the type of observations, and the following monotonicity property must hold
+for our machine $M$:
+\begin{prop}[Observation Monotonicity]
+\begin{align*}
+\forall \sigma, \sigma' \such \sigma \steprel \sigma' 
+\Longrightarrow \forall l \such \observe{l}{\sigma} \preceq \observe{l}{\sigma'}
+\end{align*}
+\end{prop}
+We can now define behaviors for a machine with this monotonicity property. 
+Informally, a behavior can be one of four kinds: 
+\begin{enumerate}
+\item A \emph{fault} behavior occurs when an execution takes some steps to a non-final
+state, but cannot take any further steps. This is also sometimes called ``getting stuck''
+or ``going wrong''.
+\item A \emph{terminating} behavior occurs when an execution takes some steps to a
+final state.
+\item A \emph{silently-diverging} behavior occurs when an execution takes infinitely
+many steps without any change in observation (i.e., no new observations are produced).
+\item A \emph{reactive} behavior occurs when an execution takes infinitely many steps
+and produces infinitely many new observations.
+\end{enumerate}
+
+Formally we define behaviors using a combination of inductive and coinductive types.
+
+\section{Confidentiality}
+
+
+
+
+\section{Security Policies and Declassification}
+\end{comment}

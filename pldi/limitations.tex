@@ -1,0 +1,226 @@
+\label{limitations-chapter}
+
+We have demonstrated that our new methodology is extremely
+general, and is effective in guaranteeing security of realistic,
+low-level systems code. Nevertheless, like any framework, it
+has its fair share of assumptions and limitations. In this 
+chapter, we discuss the most important limitations in order to 
+help contextualize the situations in which our methodology
+should or should not be applicable.
+
+\paragraph{Fidelity of the Assembly Machine Model}
+Our methodology only yields a security proof for assembly
+programs that fit within our model of x86 assembly execution. The
+model is an extended version of CompCert's, primarily designed
+for supporting all of the features needed by the mCertiKOS
+kernel implementation (e.g., distinction between kernel and
+user mode executions). We make no claims about the relationship
+between our model and the physical hardware that executes x86 
+assembly code. If one wished to apply our proof to the actual
+machine execution, the following significant gaps would need
+to be closed:
+\begin{itemize}
+\item \emph{Completeness Gap}~--- Our model is certainly not complete for
+all user-level assembly programs, so it may be possible to violate 
+security on actual hardware by exploiting unmodeled assembly 
+instructions. One example of such an instruction is RDTSC,
+which reads the x86 timestamp counter, as described in 
+Chapter~\ref{timing-chapter}. The TSC can be used as a communication
+channel between processes, leaking information about how much
+time certain processes have spent executing. We do not model the
+RDTSC instruction~--- a user program that uses the instruction
+would not even be considered valid syntax in our model, so there is
+no way that any verified properties could apply to such a program.
+Note that even in the extension described in Chapter~\ref{timing-chapter},
+we choose not to model the RDTSC instruction; instead, we axiomatize
+a \ttt{rd\_tsc} primitive and call the RDTSC instruction in its 
+unverified implementation.
+
+\item \emph{Soundness Gap}~--- In addition to this completeness gap, there is 
+also a potential soundness 
+gap between our machine model and the physical hardware; we must trust that 
+the semantics of all of our modeled assembly instructions are faithful to
+the actual hardware execution. This is a standard area of trust that arises
+in any formal verification effort: at some point, we always reach a low-enough 
+level where trust is required, whether this means trusting the operating system that 
+a program is running on, trusting the hardware to meet its published specifications, 
+or trusting the laws of physics that the hardware is presumably obeying. Note
+that the level of trustworthiness of our machine model is similar to CompCert's, 
+since we use a modest extension over CompCert's model.
+
+\item \emph{Safety Gap}~--- The soundness gap just described requires us 
+to trust that whenever the
+modeled semantics of an assembly instruction is well-defined, the execution
+of that instruction on physical hardware will do what the model says. What
+happens, however, if the modeled semantics gets stuck? The model makes
+no promises about the actual execution of a stuck semantics; the 
+execution could continue running without issues, but it would no longer
+be bound by any of our verification. Therefore, even if we closed the 
+completeness and soundness gaps described above to a point of satisfaction, 
+we would still be required to assume that user programs never have undefined 
+semantics in order to apply our verification to the physical execution.
+This is quite a heavyweight assumption, as user-level code is meant to 
+represent arbitrary and unverified assembly.
+\end{itemize}
+
+\paragraph{Future Plans for Model Fidelity}
+In light of these various unrealistic assumptions required to apply our
+verification to the physical machine, it would be desirable to implement
+a clearer and more streamlined representation of user-mode assembly 
+execution. The mCertiKOS assembly model was designed for verification
+of the kernel code; there is actually no need to use that model for unverified
+user process execution. Instead, we can design a simple model consisting
+of registers and a flat memory representing a virtual address space, where
+an instruction can be one of the following:
+\begin{itemize}
+\item \emph{interrupt}~--- A trap into the kernel to handle, for example, 
+a privileged instruction or a system call.
+\item \emph{load/store}~--- Instructions that use the kernel's load/store
+primitives to access the virtual address space. These may trigger a page 
+fault, to be handled by the kernel.
+\item \emph{other}~--- Any other user-land instruction, which is assumed
+to only be able to read/write the values in registers.
+\end{itemize}
+
+This simple model has the benefit of making very clear exactly what 
+assumption needs to hold in order to relate the model to actual execution:
+the arbitrary user-land instructions must only depend upon and write
+values in the modeled registers. Notice that the RDTSC instruction
+described above is an example of an instruction that does \emph{not}
+satisfy this assumption; hence it would need to be explicitly modeled
+if we wanted to support it.
+
+We hope that future work can gradually model more and more hardware 
+features and instructions like RDTSC that do not satisfy this assumption.
+Each new feature could potentially violate security, and thus will 
+require some additional verification effort. For the RDTSC example, we
+would close the timestamp counter information channel by setting the
+timestamp disable flag (TSD), which causes the hardware to treat
+RDTSC as a privileged instruction. Then, if a user process attempts to 
+execute the instruction, the hardware will generate an exception and 
+trap into the kernel. The kernel will then handle the exception in a way
+that is verified to be secure (e.g., it could kill the process, 
+yield to a different process, or return a virtualized timestamp as
+in Chapter~\ref{timing-chapter}).
+
+\paragraph{High-Level Policy Specification}
+As with any formal verification effort, we must trust that the top-level 
+specification of our system actually expresses our intentions for the system, 
+including the security policy specified as 
+an observation function. Because observation functions can have any type, 
+our notion of security is far more expressive than classical pure 
+noninterference. This does mean, however, that it can potentially be 
+difficult to comprehend the security ramifications of a complex or 
+poorly-constructed observation function. We place the onus on the system
+verifier to make the observation function as clear and concise as 
+possible. This view is shared by a number of previous security frameworks
+with highly-expressive policy specification, such as the PER 
+model~\cite{sabelfeld99} and Relational Hoare Type Theory~\cite{rhtt}.
+In our mCertiKOS security specification, the virtual address space
+observation provides a good example of a nontrivial but
+clear policy specification~--- hiding physical addresses is, after all,
+the primary reason to use virtual address spaces. Note, however,
+as we discussed in Section~\ref{casestudy-isolation}, it may actually
+be possible to remove this trust requirement in certain contexts by
+proving a higher-level theorem that is independent from the choice
+of observation function.
+
+\paragraph{Applicability of the Methodology}
+In order to utilize our security methodology, the following steps must be taken:
+\begin{itemize}
+\item The high-level security policy must be expressed as isolation
+  between the observation functions of different principals. As
+  mentioned previously, the complete lack of restrictions on the
+  observation function yields a very high level of policy
+  expressiveness. While a systematic exploration of expressiveness
+  remains to be done, we have not encountered any kinds of information
+  flows that are %obviously inexpressible
+  not expressible in terms of an observation function.
+
+\item The high-level security property
+  (Definition~\ref{high-level-security}) must be provable over the
+  top-level semantics. In particular, this means that
+  indistinguishability must be preserved on a step-by-step basis. If
+  it is not preserved by each individual step, then the top-level
+  semantics must be abstracted further. For example, in our mCertiKOS
+  security verification, we found that the TSysCall semantics did not
+  preserve indistinguishability on a step-by-step basis; we therefore
+  abstracted it further into the TSysCall-local semantics that hides
+  the executions of non-observer processes.  We are unsure if this
+  requirement for single-step indistinguishability preservation could
+  be problematic for other systems. In our experience, however,
+  repeated abstraction to the point of atomicity is highly desirable,
+  as it yields a clear specification of the system.
+
+\item Indistinguishability-preserving simulations must be established
+  to connect the various levels of abstraction. While the main
+  simulation property can require significant effort, we have not
+  found the indistinguishability preservation property to be difficult
+  to establish in practice. The property generally feels closer to a
+  sanity check than a significant restriction. Consider, for instance,
+  the example of the \ttt{swap} primitive from
+  Section~\ref{informal-simulation}.  That example failed to preserve
+  security across simulation because the local variable \ttt{z} was
+  being considered observable. A caller of the \ttt{swap} primitive
+  should obviously have no knowledge of \ttt{z}, however. Thus this is just a
+  poorly-constructed observation function; a reasonable notion of
+  observation would hide the local variable, and indistinguishability
+  preservation would follow naturally.
+\end{itemize}
+
+\paragraph{User Process Safety}
+There are a number of assumptions required specifically for the mCertiKOS
+security guarantee (as opposed to the general theory). Most of these are 
+directly inherited from the mCertiKOS
+soundness theorem, such as correctness of the bootloader, device drivers,
+and the CompCert assembler; see~\cite{certikos-popl} for more details on
+these assumptions. There is, however, one new assumption that requires 
+discussion here, related to the safety of user processes.
+
+Notice that the theory presented in Chapter~\ref{methodology-chapter} 
+requires a proof of safety of the 
+top-level semantics, with respect to some initialization invariant $I$ 
+(Definition~\ref{high-level-security}). This means 
+we must prove that $I$ is preserved by each individual step of the 
+semantics, and that the semantics can always take a step from any state
+satisfying $I$ (i.e., standard preservation and progress properties).
+We have a proof of preservation for mCertiKOS, but not progress.
+The current version of mCertiKOS is non-preemptive 
+and trusts user processes to have well-defined semantics. The TSysCall-local
+semantics can thus get stuck in either of the following ways:
+\begin{itemize}
+\item The semantics does not currently specify what should happen when a 
+user process attempts to execute an assembly instruction that has 
+undefined semantics, such as a division by zero. Ideally, an operating system 
+should provide a sandbox environment for user processes, where any undefined 
+instruction causes a trap into the kernel, and is handled by either killing the
+offending process or by yielding to a different process. mCertiKOS does not yet 
+do this, but we hope this could be done in future work.
+\item The big steps of the TSysCall-local semantics (Figure~\ref{bigstep}) could 
+get stuck if a process yields but is never scheduled again. Even if we proved 
+that the kernel scheduler is fair (which would not be difficult as it currently 
+only does round-robin scheduling), we would still need to assume that user 
+processes always eventually call yield. This is a fundamental limitation of a 
+non-preemptive kernel. There are plans to make mCertiKOS preemptive in the 
+future, but this requires a significant amount of effort.
+\end{itemize}
+Because of this potential for the top-level semantics to get stuck, we assume 
+a significant hypothesis in our Coq proof, which essentially says that neither of
+the two situations above ever happens. While this hypothesis is necessary
+at the moment, it can be completely discharged if mCertiKOS is upgraded 
+with a sandbox feature and preemption.
+
+\paragraph{Inter-Process Communication}
+The mCertiKOS verification presented in this work only applies to a version of 
+the kernel that disables IPC. In the future, we would like to allow some 
+well-specified and  disciplined forms of IPC that can still be verified 
+secure. We have actually already started adding IPC~--- our most recent version of 
+the secure kernel includes an IPC primitive that allows communication between all
+processes with ID at most $k$ (a parameter that can be modified). The
+security theorem then holds for any observer process with ID greater
+than $k$. Ideally, we would like to extend this theorem
+so that it guarantees some nontrivial properties about those
+privileged processes with low ID.
+   
+
+

@@ -1,0 +1,167 @@
+\newcommand\InfTagFont\textsc %[1]{#1}
+\newcommand\EqnTagFont\textsc %[1]{#1}
+
+%% a few macros to simplify defining commands with optional arguments
+
+\makeatletter
+\def\@withopt#1[#2]{#1{#2}}
+\newcommand\optarg[2]{\@ifnextchar[{\@withopt{#2}}{\@withopt{#2}[#1]}}
+\makeatother
+\newcommand\compose[3]{#1{#2{#3}}}
+
+%% Inference rules based on proof.sty 
+
+% I don't remember who wrote these macros, but their design leaves a lot to be
+% desired. First off, what might be the purpose of this tabular environment,
+% which contains exactly one line and exactly one column? Second, setting the
+% argument locally in math mode and enclosing the whole thing in a tabular
+% prevents one from using these macros in an external array environment and
+% placing formatting punctuation in the arguments (e.g. to align the judgments
+% or tags of several axioms vertically).
+% But it's probably too late to fix it for the wif paper, and having this code
+% shared means it will only be getting harder.
+% --val
+
+\newcommand{\Axiom}[2][]{
+       \begin{tabular}{@{}c@{}}
+           \ifthenelse{\equal{#1}{}}{$#2$}{$#2 \;\;\; \InfTagFont{#1}$}
+       \end{tabular}}
+
+\newcommand{\Infer}[3][]{
+       \begin{tabular}{@{}c@{}} \infer[\InfTagFont{#1}]{#2}{#3} \end{tabular}}
+    
+%\newcommand\EInferEqn[2]{
+%  \begin{equation}%
+%  \ifthenelse{\equal{#1}{}}{}{\tag{\EqnTagFont{#1}}}%
+%  %% \label{eq:#1}%
+%  \begin{array}{@{}c@{}}#2\end{array}%
+%  \end{equation}}
+
+\newlength\infrulewidth\setlength\infrulewidth{.855\columnwidth}
+\newlength\infrulenamewidth\setlength\infrulenamewidth{.195\columnwidth}
+\newlength\infrulevskip\setlength\infrulevskip{1ex}
+
+\newcommand\EInferEqn[2]{
+ \par\vspace\infrulevskip\noindent%
+ \begin{tabular}{@{}p{\infrulewidth}@{}p{\infrulenamewidth}@{}}%
+ \hfil$\begin{array}{@{}c@{}}#2\end{array}$\hfill &%
+ \ifthenelse{\equal{#1}{}}{}{\hfill\EqnTagFont{(#1)}}\\[\infrulevskip]
+%% \label{eq:#1}%
+ \end{tabular}\par\medskip}
+
+\newcommand\EAxiomFull[3]{\EInferEqn{#1}{#2#3}}
+%% EAxiom is like EAxiomFull but has the parameter template [#1]#2[#3]
+\newcommand\EAxiom{\optarg{}{\compose{\compose{\optarg{}}}\EAxiomFull}}
+
+\newcommand\InferAligned[2]{\raisebox{-1.7ex}{\infer{#1}{#2}}}
+
+\newcommand\EInferFull[4]{\EInferEqn{#1}{\InferAligned{#2}{#3}#4}}
+%% EInfer is like EInferFull but with the template [#1]#2#3[#4]
+\newcommand\EInfer{\optarg{}{\compose{\compose{\compose{\optarg{}}}}\EInferFull}}
+
+%% Inference rules
+
+\newcommand\RuleSec[2]{\noindent\fbox{\ensuremath{#1}}}
+\newcommand\RuleSSec[2]{\noindent\fbox{\ensuremath{#1}}}
+
+\newcommand\Eqn[3][]{%
+  \begin{equation}%
+  \ifthenelse{\equal{#1}{}}{}{\tag{\EqnTagFont{#1}}}%
+  \label{eq:#2}%
+  #3%
+  \end{equation}}
+
+\newcommand\Eqnu[3][]{\[#3\]}
+
+\newcommand\Eq[2]{%
+  \begin{equation*}%
+  \label{eq:#1}
+  #2%
+  \end{equation*}}
+
+\newcommand\Rulex[3]{%
+  \frac
+  {\begin{array}{@{\;}#1@{\;}}#2\end{array}}
+  {\begin{array}{@{\;}#1@{\;}}#3\end{array}}
+  }
+\newcommand\Rule{\Rulex l}
+\newcommand\Rulec{\Rulex c}
+
+%\newcommand\Axiom[1]{%
+%  \begin{array}{@{}l@{}}%
+%    #1\\
+%  \end{array}}
+
+%{\theorembodyfont{\raggedright}     %% I commented this out for my
+%  \newtheorem{lemma}{Lemma}         %% paper -- conflicting with 
+%  \newtheorem{theorem}{Theorem}     %% the {theorem} package?? ---nadeem
+%  }
+
+\newif\iflongproofs\longproofstrue
+\newif\iftabularprop\tabularpropfalse
+
+\newenvironment{proofcases}
+{\begin{list}{}{
+      \renewcommand\makelabel[1]{\textbf{##1:} }
+      \setlength\labelsep{0pt}
+      \setlength\labelwidth{0pt}
+      \setlength\leftmargin{.67em}
+      \setlength\itemindent{0pt}
+      }}
+  {\end{list}}
+
+\newcommand\PrFwCase{\ensuremath{(\Longrightarrow)}}
+\newcommand\PrBkCase{\ensuremath{(\Longleftarrow)}}
+
+\newenvironment{PrITE}{
+  \iftabularprop
+    \newcommand\PrIF{If&}
+    \newcommand\PrSEP{\\&}
+    \newcommand\PrAND{\\and&}
+    \newcommand\PrTHEN{\\then&}
+    \newcommand\PrWHERE{\\\emph{where}&}
+    \begin{tabular}{@{}r@{\ }l@{}}
+  \else
+  \newcommand\PrIF{\textbf{If} }
+  \newcommand\PrIFF{ \textbf{if and only if} }
+  \newcommand\PrSEP{\textbf{,} }
+  \newcommand\PrAND{\textbf{, and} }
+  \newcommand\PrTHEN{\textbf{\ then} }
+  \newcommand\PrWHERE{\textbf{\ \emph{where}} }
+  \fi}{%
+  \iftabularprop\end{tabular}%
+  \else%
+  \fi}
+  
+\newcommand\QED{\hfill$\Box$}
+
+%% These expect these arguments:
+%%   1) A textual name for the property
+%%   2) An identifier naming the property, for cross-referencing
+%%   3) A statement of the property
+%%   4) A claim about how it can be proved 
+%%        ("by induction on..", "by inspection")
+%%   5) A summary of the proof, indicating key points
+%%   6) The complete proof
+
+\newcommand\Prop[7]{
+  \begin{#1}[#2]\label{prop:#3} #4 \end{#1}}
+
+\newcommand\PropPf[7]{
+  \begin{#1}[#2]\label{prop:#3} #4 \end{#1}
+  \textbf{Proof:} #5
+  \iflongproofs #7
+  \else #6
+  \fi}
+
+\newcommand\Lemma{\Prop{lemma}}
+\newcommand\Theorem{\Prop{theorem}}
+
+\newcommand\LemmaPf{\PropPf{lemma}}
+\newcommand\TheoremPf{\PropPf{theorem}}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End: 

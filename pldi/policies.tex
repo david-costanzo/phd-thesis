@@ -1,0 +1,325 @@
+\section{Representing Intricate Security Policies}
+\label{policies}
+
+Now that we have described how observation functions induce a high-level
+security policy and enforce a low-level security guarantee, let us
+revisit some of the interesting example policies of Section~\ref{intro-policies}.
+
+\subsection{Declassify Parity}
+
+As a simple starting example, recall the \ttt{add} function
+mentioned above, and suppose we wish to enforce a security policy that 
+declassifies the parity of secret data.
+{\small\begin{alltt}
+  void add() \{
+      a = x + y;
+      b = b + 2; \}
+\end{alltt}}%
+\noindent{}We write the atomic specification as a relation
+between input state and output state:
+{\small\[(\sigma,\sigma') \in S_{\ttt{add}} \iff
+\sigma' = 
+\sigma[a \hookrightarrow \sigma(x) + \sigma(y); \,\,
+       b \hookrightarrow \sigma(b) + 2]\]}%
+\noindent{}We specify Alice's security policy as an observation function:
+{\small\[\observe{A}{\sigma} \isdef 
+[a \hookrightarrow \sigma(a)\%2; \,\, x \hookrightarrow \sigma(x)\%2; 
+\,\, y \hookrightarrow \sigma(y)\%2]\]}%
+\noindent{}As explained previously,
+we prove security by showing that state indistinguishability is preserved 
+by the high-level semantics. In this example, we assume that the specification of
+\ttt{add} constitutes the entirety of the machine semantics. Hence we
+must prove:
+{\small\begin{align*}
+& \observe{A}{\sigma_1} = \observe{A}{\sigma_2} \land
+(\sigma_1,\sigma_1') \in S_{\ttt{add}} \land (\sigma_2,\sigma_2') \in S_{\ttt{add}} \\
+& \qquad \Longrightarrow
+\observe{A}{\sigma_1'} = \observe{A}{\sigma_2'}
+\end{align*}}%
+\noindent{}This reduces to:
+{\small\begin{align*}
+& [a \hookrightarrow \sigma_1(a)\%2; \,\, x \hookrightarrow \sigma_1(x)\%2; 
+\,\, y \hookrightarrow \sigma_1(y)\%2] = \\
+& [a \hookrightarrow \sigma_2(a)\%2; \,\, x \hookrightarrow \sigma_2(x)\%2; 
+\,\, y \hookrightarrow \sigma_2(y)\%2] \\
+& \qquad \Longrightarrow \\
+& \hspace*{-0.1in}
+[a \hookrightarrow (\sigma_1(x) + \sigma_1(y))\%2; \,\, x \hookrightarrow \sigma_1(x)\%2; 
+\,\, y \hookrightarrow \sigma_1(y)\%2] = \\
+& \hspace*{-0.1in}
+[a \hookrightarrow (\sigma_2(x) + \sigma_2(y))\%2; \,\, x \hookrightarrow \sigma_2(x)\%2; 
+\,\, y \hookrightarrow \sigma_2(y)\%2]
+\end{align*}}%
+\noindent{}Since {\small{}$(a+b)\%2 = (a\%2 + b\%2)\%2$}, we see that the atomic
+specification of \ttt{add} is indeed secure with respect to Alice's 
+observation function. Therefore, we are guaranteed that \ttt{add} cannot
+leak any information about program state to Alice beyond the parities 
+of the values in variables $a$, $x$, and $y$.
+
+\begin{comment}
+\subsection{Declassify Average Salary}
+To enforce a security policy declassifying the average salary of many
+employees at a company, we use a strategy similar to the previous
+example. Consider the following function that computes the average
+(for the purposes of this example, ignore the possibility of integer
+overflow):
+{\small\begin{alltt}
+  void avg() \{
+      t = 0;
+      for (i = 0; i < n; i++)
+         t = t + s[i];
+      a = t/n; \}
+\end{alltt}}%
+\noindent{}Assume a size-$n$ array of salaries exists starting at the location
+pointed to by $s$. Using the notation $\{v_1,...,v_N\}$ to represent
+an abstraction of the salary array as a Coq list, we can express the
+atomic specification of \ttt{avg} as:
+{\small\begin{align*}
+& (\sigma,\sigma') \in S_{\ttt{avg}} \iff \\
+& \qquad \exists N,v_1,...,v_N \such
+\sigma(n) = N \land
+\sigma(s) = \{v_1,...,v_N\} \land
+\sigma' = 
+\sigma[t \hookrightarrow (\Sigma~v_i); \,\,
+       a \hookrightarrow (\Sigma~v_i)/N]\end{align*}}%
+\noindent{}Alice's observation function specifies the policy, saying that
+she can observe the average of all the salaries says that both the average salary
+$a$ and the total number of salaries $n$ are observable, but it 
+omits any information about the salary array $s$:
+{\small\[\observe{A}{\sigma} \isdef 
+[a \hookrightarrow \sigma(a); \,\,
+ n \hookrightarrow \sigma(n)]\]}%
+\noindent{}As explained previously,
+we prove security by showing that state indistinguishability is preserved 
+by the high-level semantics. In this example, we assume that the specification of
+\ttt{add} constitutes the entirety of the machine semantics. Hence we
+must prove:
+{\small\begin{align*}
+& \observe{A}{\sigma_1} = \observe{A}{\sigma_2} \land
+(\sigma_1,\sigma_1') \in S_{\ttt{add}} \land (\sigma_2,\sigma_2') \in S_{\ttt{add}} \\
+& \qquad \Longrightarrow
+\observe{A}{\sigma_1'} = \observe{A}{\sigma_2'}
+\end{align*}}%
+\noindent{}This reduces to:
+{\small\begin{align*}
+& [a \hookrightarrow \sigma_1(a)\%2; \,\, x \hookrightarrow \sigma_1(x)\%2; 
+\,\, y \hookrightarrow \sigma_1(y)\%2] = \\
+& [a \hookrightarrow \sigma_2(a)\%2; \,\, x \hookrightarrow \sigma_2(x)\%2; 
+\,\, y \hookrightarrow \sigma_2(y)\%2] \\
+& \qquad \Longrightarrow \\
+& \hspace*{-0.1in}
+[a \hookrightarrow (\sigma_1(x) + \sigma_1(y))\%2; \,\, x \hookrightarrow \sigma_1(x)\%2; 
+\,\, y \hookrightarrow \sigma_1(y)\%2] = \\
+& \hspace*{-0.1in}
+[a \hookrightarrow (\sigma_2(x) + \sigma_2(y))\%2; \,\, x \hookrightarrow \sigma_2(x)\%2; 
+\,\, y \hookrightarrow \sigma_2(y)\%2]
+\end{align*}}%
+\noindent{}Since {\small{}$(a+b)\%2 = (a\%2 + b\%2)\%2$}, we see that the atomic
+specification of \ttt{add} is indeed secure with respect to Alice's 
+observation function. Therefore, we are guaranteed that \ttt{add} cannot
+leak any information about program state to Alice beyond the pariti
+\end{comment}
+
+\subsection{Event Calendar Objects}
+
+The next example demonstrates modularity of the observation
+function. Suppose we have a notion of calendar object where 
+various events are scheduled at time slots numbered from $1$
+to $N$. At each time slot, the calendar contains either 
+\none{} representing no event, or $\some{v}$
+representing an event whose details are encoded by integer $v$. 
+A program state consists of a calendar object for each principal:
+{\small\begin{align*}
+\text{calendar } \mathcal{C} \quad & \isdef \quad \mathbb{N} \to \option{\mathbb{Z}} \\
+\text{state } \Sigma \quad & \isdef \quad \mathcal{P} \to \mathcal{C}
+\end{align*}}%
+\noindent{}We define an observation function, parameterized by an
+observer principal, describing the following policy:
+\begin{enumerate}
+\item Each principal can observe the entire contents of his or her own calendar.
+\item Each principal can observe only whether or not time slots are
+free in other principals' calendars, and hence cannot be influenced by the
+details of others' scheduled events.
+\end{enumerate}
+For simplicity, we define the type of observations to be the same as the type
+for program state ($\Sigma$). For readability, we write $\sigma(p,n)$ to
+indicate the option event located at slot $n$ of $p$'s calendar in state $\sigma$.
+{\small\begin{align*}
+\observe{p}{\sigma} \isdef \lambda p' \such \lambda n \such  
+\left\{
+\begin{aligned}
+&\sigma(p',n), \quad \text{if } p' = p \\
+&\none{}, \quad \quad \text{if } p' \neq p \land \sigma(p',n) = \none{} \\
+&\some{0}, \quad \, \text{if } p' \neq p \land \sigma(p',n) \neq \none{}
+\end{aligned}\right.
+\end{align*}}%
+
+This observation function only reveals details of scheduled events in
+a calendar to the calendar's owner, and therefore allows a principal
+to freely modify his or her own calendar securely. If different principals
+wish to collaborate in some way, we must verify that such collaboration is 
+secure with respect to this observation function. For example,
+consider a function \ttt{sched} that attempts to
+schedule some common event among a set of principals.
+Given a list of principals $P$ and an event $e$, the function
+will search for the earliest time slot $n$ that is free for all
+principals in $P$. If such a time slot is found, then all
+of the involved principals' calendars are updated with
+event $e$ scheduled at slot $n$. Otherwise, all calendars are 
+unchanged. The following is pseudocode, and operates over
+a program state that contains an implementation of the
+per-principal calendars ($\Sigma$) in the array \ttt{cals}:
+
+{\small\begin{alltt}
+  void sched(list[int] P, int e) \{
+      freeSlot = 0;
+      for i = 1 to N \{
+         allFree = true;
+         for j = 1 to |P| \{
+            if (cals[P[j]][i] != None) \{
+               allFree = false;
+               break;
+            \}
+         \}
+         if (allFree) \{
+            freeSlot = i;
+            break;
+         \}
+      \}
+
+      if (freeSlot != 0) \{
+         for i = 1 to |P|
+            cals[P[i]][freeSlot] = Some e;
+      \}
+  \}
+\end{alltt}}%
+
+With some effort, one can verify that this 
+implementation of \ttt{sched} satisfies the high-level
+specification described above (i.e., the function schedules 
+the new event in the principals' calendars if they all share an available
+time slot, or does nothing otherwise). Once we have the atomic
+specification, we can verify that it is secure for all principals,
+with respect to the observation function defined above. We
+will not go through details of the security proof here, but the
+general intuition should be clear: the behavior of \ttt{sched} 
+is only dependent on the availability of time slots 
+(i.e., the \none{}/\ttt{Some} status); the specific details
+of scheduled events are never used.
+
+\subsection{Security Labels and Dynamic Tainting}
+
+Our third example concerns dynamic labels and tainting, as described
+in Chapters~\ref{intro-chapter} and~\ref{logic-chapter}.
+Even though the observation function
+is statically defined for an entire execution, we can exploit dynamic labels
+to change the observability of data during an execution.
+Assume we have a lattice of security labels $\mathbb{L}$, with the set
+of possible labels being a superset of principals $\mathcal{P}$.
+Let program state be a function mapping variables to a pair $(v,l)$
+of integer value $v$ and security label $l$. For a given principal $p$, 
+the observation function expresses the policy that all security labels
+are observable, but values are only observable if they have a 
+label less than or equal to $p$ in the lattice:
+{\small\begin{align*}
+\observe{p}{\sigma} \isdef \lambda x \such  
+\left\{
+\begin{aligned}
+&(v,l), \quad \text{if } \sigma(x) = (v,l) \land l \sqsubseteq p \\
+&(0,l), \quad \text{if } \exists v \such \sigma(x) = (v,l) \land l \not\sqsubseteq p
+\end{aligned}\right.
+\end{align*}}%
+
+We can now consider primitives that dynamically change the observability
+of data by propagating labels. For example, consider a function 
+\ttt{add} that takes two parameters $a$ and $b$, and updates variable $x$ to 
+have a value equal to the sum of their values, and a label equal to the least 
+upper bound of their labels. Assuming a direct implementation of
+labeled integers as objects, the pseudocode will look like:
+\newpage
+{\small\begin{alltt}
+  void add(lbl_int a, lbl_int b) \{
+      x.val = a.val + b.val;
+      x.lbl = a.lbl \(\sqcup\) b.lbl \}
+\end{alltt}}%
+\noindent{}The atomic specification of \ttt{add} is:
+{\small\begin{align*}
+(\sigma,\sigma') \in S_{\ttt{add}} \iff 
+\sigma' = 
+\sigma[x \hookrightarrow (\sigma(a).1 + \sigma(b).1, \,\, \sigma(a).2 \sqcup \sigma(b).2)]
+\end{align*}}%
+
+The security proof for \ttt{add} is straightforward. If two initial
+states $\sigma_1$ and $\sigma_2$ have equal observations for principal
+$p$, then there are two possibilities.  First, if both of the labels
+of $a$ and $b$ (in states $\sigma_1$ and $\sigma_2$) are less than or
+equal to $p$, then indistinguishability tells us that $\sigma_1(a)
+= \sigma_2(a)$ and $\sigma_1(b) = \sigma_2(b)$. Hence the sum of their
+values in the two executions will be the same, and so the resulting
+final states are indeed indistinguishable.  Second, if at least one of
+the labels is not less than or equal to $p$, then the least upper
+bound of the labels is also not less than or equal to $p$. Hence the
+observation of $x$ on the final states will be a value of $0$, and so
+the final states are indistinguishable.
+
+We could go further here and build an entire label-aware execution
+environment. Proving security of the high-level specifications is a
+similar process to proving soundness in other label-aware systems. We
+could then either treat the labels as purely logical state (like many
+statically-typed security systems), erasing them with a simulation
+relation, or we could verify a refinement to a machine like the one
+used in the SAFE system~\cite{safe}, where labels are actually
+implemented in the hardware and the physical machine performs dynamic
+label checks and tainting. Regardless of this choice of label
+representation, as long as we make sure our simulation relation
+preserves indistinguishability (as defined earlier), the security of 
+the high-level specifications
+will automatically give us the whole-execution noninterference
+property for the low-level machine.
+
+\paragraph{Relation to Our Program Logic}
+This example can be viewed as a generalization of the strategy
+employed by the security-aware program logic of Chapter~\ref{logic-chapter}.
+The program logic directly modeled dynamic label tainting using 
+a machine semantics instrumented with logical labels. There is,
+however, a significant difference: the small steps of the program logic's
+instrumented semantics do not satisfy the unwinding condition
+noninterference property presented in this chapter. Specifically,
+recall from Section~\ref{noninterference} that the heap-read
+primitive instruction violates noninterference. Our solution 
+presented in that section was to exploit properties of the
+specific inference rules of the program logic to establish a
+restriction on how the heap-read instruction can be used in
+the semantics.
+
+It turns out that there is actually a way to define the
+instrumented semantics such that each step is
+automatically noninterfering, regardless of which particular
+inference rules are used for program verification. We
+discovered this fact by attempting to prove noninterference in 
+Coq and figuring out precisely what goes wrong. We found that we
+could fix the proof by adding a specific (but rather unintuitive) 
+dynamic label check to the instrumented heap-write instruction. The
+check uses the label of the \emph{old} data in the heap ($l_3$ below) 
+to enforce an upper bound:
+\small{
+\begin{mathpar}
+\inferrule*[right=(WRITE)]
+{\den{E}s = \some{(n_1,l_1)} \\
+h(n_1) = \some{(\_,l_3)} \\
+\den{E'}s = \some{(n_2,l_2)} \\
+l_1 \sqcup l' \sqsubseteq l_3}
+{\pconfig{(s,h)}{[E]:=E'}{K} \pstep{l'}{} \pconfig{(s,h[n_1 \mapsto (n_2, l_1 \sqcup l_2 \sqcup l')])}{\skp}{K}}
+\end{mathpar}}%
+\noindent{}While adding this check could potentially reduce the set of 
+verifiably-secure programs (i.e., reduce completeness of the logic),
+it allows for noninterference to be entirely separated from the
+program logic inference rules. This key insight paved the way for us
+to develop the novel methodology presented in this chapter.
+Interestingly, after coming up with this additional label check,
+we later discovered that some other purely-dynamic (i.e., no program
+logic involved) security systems in the literature use the exact 
+same check (\cite{austin09,hritcu14,zdancewic02}), and refer to it
+as the ``no-sensitive-upgrade'' requirement.
+
+

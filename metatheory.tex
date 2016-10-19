@@ -1,0 +1,603 @@
+\section{Applications of Behavior Preservation}
+\label{metatheory}
+
+Now that we have an abstracted formalism of our
+behavior-preserving local actions, we can demonstrate some
+ways in which behavior preservation yields significant
+benefits and simplifications. We will first present
+four Separation Logic metatheory issues which are greatly
+simplified by enforcing behavior preservation; these four
+issues are described in full detail (including proofs) in the technical report of
+our APLAS publication~\cite{costanzo12:bpsltr}. Then we will conclude by connecting this 
+chapter to the dissertation's main contributions, with a discussion of
+how behavior preservation is important for security verification.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Footprints and Smallest Safe States}
+\label{ssec:footprint}
+
+Consider a situation in which we are handed a program $C$ along with a specification of what this program
+does. The specification consists of a set of axioms; each axiom has the form $\assert{P}{C}{Q}$
+for some precondition $P$ and postcondition $Q$. A common question to ask would be: is this specification
+\emph{complete}? In other words, if the triple $\assertm{P}{C}{Q}$ is valid for some $P$ and $Q$, then
+is it possible to derive $\assertd{P}{C}{Q}$ from the provided specification?
+
+In standard Separation Logic, it can be extremely difficult to answer this question. In~\cite{rg09},
+the authors conduct an in-depth study of various conditions and circumstances under which it is possible to prove 
+that certain specifications are  complete. However, in the general case, there is no easy way to 
+prove this.
+
+We can show that under our assumption of behavior preservation, there is a very easy way to guarantee that
+a specification is complete. In particular, a specification that describes the exact behavior of $C$
+on all of its \emph{smallest safe states} is always complete. Formally, a smallest safe state is a 
+state $\sigma$ such that $\lnot \relate{\den{C}}{\sigma}{\fault}$ and, for all $\sigma' \prec \sigma$,
+$\relate{\den{C}}{\sigma'}{\fault}$.
+
+To see that such a specification may not be complete
+in standard Separation Logic, we borrow an example from~\cite{rg09}. Consider the program $C$, defined
+as $x:=\cons(0);\freee(x)$. This program simply allocates a single cell and then frees it. Under
+the standard model, the smallest safe states are those of the form $(s,\emp)$ for any store $s$.
+For simplicity, assume that the only variables in the store are $x$ and $y$. Define the specification
+to be the infinite set of triples that have the following form, for any $a$, $b$ in $\Z$, and any
+$a'$ in $\N$:
+\begin{align*}
+\assert{x=a \land y=b \land \empa}{C}{x=a' \land y=b \land \empa}
+\end{align*}
+\noindent{}Note that $a'$ must be in $\N$ because only valid unallocated memory addresses can be assigned into $x$.
+It should be clear that this specification describes the exact behavior on all smallest safe states of $C$.
+Now we claim that the following triple is valid, but there is no way to derive it from the given specification.
+\begin{align*}
+\assert{x=a \land y=b \land y \mapsto -}{C}{x=a' \land y=b \land y \mapsto - \land a' \neq b}
+\end{align*}
+\noindent{}The triple is clearly valid because $a'$ must be a memory address that was initially unallocated, while
+address $b$ was initially allocated. Nevertheless, there will not be any way to derive this triple,
+even if we come up with new assertion syntax or inference rules. The behavior of $C$ on the larger
+state is different from the behavior on the small one, but there is no way to recover this fact
+once we make $C$ opaque. It can be shown (see~\cite{rg09}) that if we add triples of the above form to our specification,
+then we will obtain a complete specification for $C$. Yet there is no straightforward way to see that such a 
+specification is complete.
+
+When behavior preservation is enforced, there is a clean canonical form for complete specification. 
+\begin{comment}
+We
+first note that we will need to assume that our set of states is well-founded with respect to the
+substate relation (i.e., there is no infinite strictly-decreasing chain of states). This assumption 
+is true for most standard models of Separation Logic, and furthermore, there is no reason to intuitively
+believe that the smallest safe states should be able to provide a complete specification when the
+assumption is not true.
+\end{comment}
+We say that a specification $\Psi$ is \emph{complete for $C$} if, whenever $\assertm{P}{C}{Q}$ is valid, 
+the triple $\assertd{P}{C}{Q}$ is derivable using only the inference rules that are not specific to the
+structure of $C$ (i.e., the frame, consequence, disjunction, and conjunction rules), plus the following axiom rule:
+\begin{mathpar}
+\inferrule
+{\assert{P}{C}{Q} \in \Psi}
+{\assertd{P}{C}{Q}}
+\end{mathpar}
+\noindent{}For any $\sigma$, let $\behave{\den{C}}{\sigma}$ denote the set of all
+$\sigma'$ such that $\relate{\den{C}}{\sigma}{\sigma'}$.  For any set
+of states $S$, we define a \emph{canonical specification on $S$} as
+the set of triples of the form
+$\assert{\{\sigma\}}{C}{\behave{\den{C}}{\sigma}}$
+for any state $\sigma \in S$. If there exists a canonical specification on $S$ 
+that is complete for $C$, then we say that $S$ forms a \emph{footprint} for $C$.
+\ifextended
+\else
+We can then prove the following theorem (see the extended TR):
+\fi
+\begin{thm}
+For any program $C$, the set of all smallest safe states of $C$ forms a footprint for $C$.
+\label{th:ftprint}
+\end{thm}
+\begin{comment}
+\ifextended
+\begin{proof}
+Let $\Psi$ be the canonical specification of $C$ on the set of all smallest safe states $S$. Consider any
+valid triple $\assertm{P}{C}{Q}$. We will show that for any $\sigma \in P$, we can
+derive the triple $\assertd{\{\sigma\}}{C}{Q}$ using our restricted set of inference rules~--- an 
+application of the disjunction rule then completes the proof.
+
+Consider any state $\sigma \in P$. Since $\assertm{P}{C}{Q}$ is valid, $\lnot \relate{\den{C}}{\sigma}{\fault}$.
+We will show with a simple induction on the subheap operator that $\sigma_0 \preceq \sigma$ for some smallest 
+safe state $\sigma_0$. Note that we can perform such an induction because the subheap operator is well-founded.
+
+\begin{case2}
+$\sigma$ is a smallest safe state. Then $\sigma \preceq \sigma$, and we are done.
+\end{case2}
+
+\begin{case2}
+$\sigma$ is not a smallest safe state. Since $\lnot \relate{\den{C}}{\sigma}{\fault}$, $\sigma$ is by 
+definition a safe state. Therefore, there must be some strictly smaller safe state $\sigma_0 \prec \sigma$. 
+By our induction hypothesis, $\sigma_0' \preceq \sigma_0$ for some smallest safe state $\sigma_0'$. Hence we have 
+$\sigma_0' \preceq \sigma_0 \preceq \sigma$.
+\end{case2}
+
+Now let $\sigma = \sigma_0 \bullet \sigma_1$, where $\sigma_0$ is a smallest safe state. Then there is
+an axiom $\assert{\{\sigma_0\}}{C}{\behave{\den{C}}{\sigma_0}} \in \Psi$. We use the axiom rule to get
+$\assertd{\{\sigma_0\}}{C}{\behave{\den{C}}{\sigma_0}}$, followed by the frame rule to get
+$\assertd{\{\sigma\}}{C}{\behave{\den{C}}{\sigma_0} * \{\sigma_1\}}$. Consider any $\sigma' \in \behave{\den{C}}{\sigma_0} * \{\sigma_1\}$.
+Then $\sigma' = \sigma_0' \dt \sigma_1$ for some $\sigma_0'$ such that $\relate{\den{C}}{\sigma_0}{\sigma_0'}$.
+By the Forwards Frame Property, $\relate{\den{C}}{\sigma}{\sigma'}$. Since the triple $\assertm{P}{C}{Q}$ is valid
+and $\sigma \in P$, we see that $\sigma' \in Q$. Thus we have shown that 
+$\behave{\den{C}}{\sigma_0} * \{\sigma_1\} \subseteq Q$, and so an application of the consequence rule gives us the
+desired $\assertd{\{\sigma\}}{C}{Q}$.
+\end{proof}
+\fi
+\end{comment}
+Note that while this theorem guarantees that the canonical specification is complete, we may not
+actually be able to write down the specification simply because the assertion language is not 
+expressive enough. This would be the case for the behavior-preserving nondeterministic memory
+allocator if we used the assertion language presented in Section~\ref{concrete}. We could, however,
+express canonical specifications in that system by extending the assertion language to talk about 
+the free list.
+% (as briefly discussed at the end of Section~\ref{concrete}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Data Refinement}
+\label{ssec:datarefinement}
+
+In~\cite{filipovic10}, the goal is to formalize the concept of having a concrete module correctly implement an abstract one, within
+the context of Separation Logic. Specifically, the authors prove that as long as a client program ``behaves nicely,'' 
+any execution of the program using the concrete module can be tracked to a corresponding execution using the abstract module.
+The client states in the corresponding executions are identical, so the proof shows that a well-behaved client cannot tell
+the difference between the concrete and abstract modules. 
+
+To get their proof to work out, the authors require
+two somewhat odd properties to hold. The first is called
+\emph{contents independence}, and is an extra condition on top of the
+standard locality conditions. The second is called a \emph{growing
+  relation}~--- it refers to the relation connecting a state of the
+abstract module to its logically equivalent state(s) in the concrete
+module. All relations connecting the abstract and concrete modules in
+this way are required to be growing, which means that the domain of
+memory used by the abstract state must be a subset of that used by the
+concrete state. This is a somewhat unintuitive and restrictive requirement
+which is needed for purely technical reasons. It turns out that behavior 
+preservation completely eliminates the need for
+both contents independence and growing relations.
+
+We now provide a formal setting for the data refinement theory. This
+formal setting is similar to the one in~\cite{filipovic10}, but
+we will make some minor alterations to simplify the presentation. The
+programming language is defined as:
+\begin{mathpar}
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+\production{& C}
+    \prodcase{\skp}
+    \prodcase{c}
+    \prodcase{\texttt{m}}
+    \prodcase{C_1;C_2}
+    \prodcase{\condfull{B}{C_1}{C_2}}
+    \prodcase{\while{B}{C}}
+\end{bnf}
+\end{mathpar}
+$c$ is a primitive command (sometimes referred to as ``client operation'' in
+this context). $\texttt{m}$ is a \emph{module command} taken from an
+abstracted set \textbf{MOp} (e.g., a memory manager might implement 
+the two module commands \texttt{cons} and \freee{}).
+
+\begin{comment}
+\ifextended
+In the language, we abstract out the syntax of the boolean expression type $B$, and
+assume we have a denotational semantics for boolean expressions (written $\den{B}$) mapping
+program states to boolean values. Furthermore, this semantics is required to have the 
+following simple locality property:
+\[\forall \sigma_0, \sigma_1 \such \sigma_0 \# \sigma_1 \Longrightarrow \den{B}(\sigma_0 \dt \sigma_1) = \den{B}\sigma_0\]
+\fi
+\end{comment}
+
+The primitive client and module commands are assumed to have a semantics mapping them to particular local actions. We of course use our behavior-preserving
+notion of ``local'' here, whereas in~\cite{filipovic10}, the authors use the three properties of safety monotonicity, the (backwards) frame property,
+and a new property called contents independence. It is trivial to show that behavior preservation implies contents independence, as contents 
+independence is essentially a forwards frame property that can only be applied under special circumstances.
+
+\begin{comment}
+We also assume we have a semantics for expressions and boolean expressions: $\den{E}$ has type $\Sigma \to \texttt{option int}$ and 
+$\den{B}$ has type $\Sigma \to \texttt{option bool}$. Both of these semantics are required to be ``local'' in the following sense
+($A$ is a placeholder for either $E$ or $B$):
+\[\sigma_0 \# \sigma_1 \land \den{A}\sigma_0 \neq \none \Longrightarrow \den{A}(\sigma_0 \dt \sigma_1) = \den{A}\sigma_0\]
+\end{comment}
+
+\begin{comment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[t]
+\begin{mathpar}
+
+\hspace{-15mm}    
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+
+\production{& E}
+    \prodcase{0}
+	\prodcase{1}
+    \prodcase{\ldots}
+    \prodcase{x}
+    \prodcase{y}
+    \prodcase{\ldots}
+	\prodcase{E+E'}
+	\prodcase{\ldots}
+    
+\production{& B}
+    \prodcase{E=E'}
+    \prodcase{\false}
+    \prodcase{B \Rightarrow B'}
+    
+\production{& C}
+    \prodcase{\skp}
+    \prodcase{c}
+    \prodcase{\texttt{m} \quad (\texttt{m} \in \textbf{MOp})}
+    \prodcase{C;C'}
+    \prodcase{\cond{B}{C}{C'}}
+    \prodcase{\while{B}{C}}
+    
+\end{bnf}
+\end{mathpar}
+
+\caption{Language with Module Commands}
+\label{modlang}
+\vspace{3mm}
+\hrule
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{comment}
+
+A \emph{module} is a pair $(p,\eta)$ representing a particular implementation of the module commands in \textbf{MOp}; the 
+state predicate $p$ describes the module's \emph{invariant} (e.g., that a valid free list is stored starting at a location
+pointed to by a particular head pointer), while $\eta$ is a function mapping each module command to a particular local action.
+The predicate $p$ is required to be \emph{precise}~\cite{oyr04}, meaning that no state can have more than one substate satisfying $p$ (if 
+a state $\sigma$ does have a substate satisfying $p$, then we refer to that uniquely-defined state as $\sigma_p$). Additionally, 
+all module operations are required to preserve the invariant $p$:
+\[\lnot \relatebr{\eta\texttt{m}}{\sigma}{\fault} \land \sigma \in p*\true \land \relatebr{\eta\texttt{m}}{\sigma}{\sigma'}
+\Longrightarrow \sigma' \in p*\true\]
+
+\begin{comment}
+\ifextended
+The big-step operational semantics of our machine are presented in Figure~\ref{bigopsem}. The semantics is parameterized by
+a module $(p,\eta)$, and is identical to the instrumented semantics defined in~\cite{filipovic10}. The main difference
+between this semantics and a standard one is that there is a special kind of faulting called ``access violation.'' Intuitively, an access
+violation occurs when a client operation's execution depends on the module's portion of memory. More formally, it 
+occurs when the client operation executes safely on a state where the module's memory is present (i.e., a state satisfying
+$p*\true$), but faults when that memory is removed from the state.
+
+Note that, in the semantics, we use metavariable $\sigma$ for a program state, $\tau$ for either a state or $\fault$, and $\rho$
+for either a state, $\fault$, or $\av$ (access violation).
+\end{comment}
+
+\begin{comment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}[t]
+
+\begin{mathpar}
+\inferrule*[right=(SKIP)]
+{ }
+{\sigma,\skp \bstep_{(p,\eta)} \sigma}
+
+\inferrule*[right=(PRIM)]
+{\relate{\den{c}}{\sigma}{\tau}}
+{\sigma,c \bstep_{(p,\eta)} \tau}
+
+\inferrule*[right=(PRIM-AV)]
+{\sigma_p \in p \\
+\sigma_p \# \sigma_c \\
+\relate{\den{c}}{\sigma_c}{\fault} \\
+\lnot \relate{\den{c}}{(\sigma_p \dt \sigma_c)}{\fault}}
+{\sigma,c \bstep_{(p,\eta)} \av}
+
+\inferrule*[right=(MODOP)]
+{\relate{(\eta \ttt{m})}{\sigma}{\tau}}
+{\sigma,\ttt{m} \bstep_{(p,\eta)} \tau}
+
+\inferrule*[right=(SEQ)]
+{\sigma,C_1 \bstep_{(p,\eta)} \sigma' \\
+\sigma',C_2 \bstep_{(p,\eta)} \rho}
+{\sigma,C_1;C_2 \bstep_{(p,\eta)} \rho}
+
+\inferrule*[right=(SEQ-BAD)]
+{\sigma,C_1 \bstep_{(p,\eta)} \fault}
+{\sigma,C_1;C_2 \bstep_{(p,\eta)} \fault}
+
+\inferrule*[right=(SEQ-AV)]
+{\sigma,C_1 \bstep_{(p,\eta)} \av}
+{\sigma,C_1;C_2 \bstep_{(p,\eta)} \av}
+
+\inferrule*[right=(IF-TRUE)]
+{\den{B}\sigma = \ttt{true} \\
+\sigma,C_1 \bstep_{(p,\eta)} \rho}
+{\sigma,\cond{B}{C_1}{C_2} \bstep_{(p,\eta)} \rho}
+
+\inferrule*[right=(IF-FALSE)]
+{\den{B}\sigma = \ttt{false} \\
+\sigma,C_2 \bstep_{(p,\eta)} \rho}
+{\sigma,\cond{B}{C_1}{C_2} \bstep_{(p,\eta)} \rho}
+
+\inferrule*[right=(WHILE-TRUE)]
+{\den{B}s = \ttt{true} \\
+\sigma,C;\while{B}{C} \bstep_{(p,\eta)} \rho}
+{\sigma,\while{B}{C} \bstep_{(p,\eta)} \rho}
+
+\inferrule*[right=(WHILE-FALSE)]
+{\den{B}s = \ttt{false}}
+{\sigma,\while{B}{C} \bstep_{(p,\eta)} \rho}
+\end{mathpar}
+
+\caption{Big-Step Operational Semantics}
+\label{bigopsem}
+\vspace{3mm}
+\hrule
+\end{figure*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\else
+\end{comment}
+We define a big-step operational semantics parameterized by a module $(p,\eta)$. This semantics is fundamentally the same as the
+one defined in~\cite{filipovic10}; the full details can be found in the 
+APLAS technical report~\cite{costanzo12:bpsltr}. The only aspect that is important to mention 
+here is that the semantics is equipped with a special kind of faulting called ``access violation.'' Intuitively, an access
+violation occurs when a client operation's execution depends on the module's portion of memory. More formally, it 
+occurs when the client operation executes safely on a state where the module's memory is present (i.e., a state satisfying
+$p*\true$), but faults when that memory is removed.
+%\fi
+
+The main theorem that we get out of this setup is a refinement simulation between a program being run in the presence of an abstract module $(p,\eta)$, and
+the same program being run in the presence of a concrete module $(q,\mu)$ that implements the same module commands (i.e., $\dom{\eta} = \dom{\mu}$, where
+the floor notation indicates domain).
+Suppose we have a binary relation $R$ relating states of the abstract module to those of the concrete module. For example, if our modules are memory
+managers, then $R$ might relate a particular set of memory locations available for allocation to all lists containing that set of locations in some order.
+To represent that $R$ relates abstract module states to concrete module states, we require that whenever $\relate{R}{\sigma_1}{\sigma_2}$,
+$\sigma_1 \in p$ and $\sigma_2 \in q$. Given this relation $R$, we can make use of the separating conjunction of 
+Relational Separation Logic~\cite{yang07} and write $R*\id$ to indicate the relation relating any two states of the form 
+$\sigma_p \dt \sigma_c$ and $\sigma_q \dt \sigma_c$, where $\relate{R}{\sigma_p}{\sigma_q}$.
+
+Now, for any module $(p,\eta)$, let $C[(p,\eta)]$ be notation for the program $C$ whose semantics have $(p,\eta)$ filled
+in for the parameter module. Then our main theorem says that, if $\eta(f)$ simulates $\mu(f)$ under relation $R*\id$ for all $f \in \dom{\eta}$, 
+then for any program $C$, $C[(p,\eta)]$ also simulates $C[(q,\mu)]$ under relation $R*\id$.
+\begin{comment} 
+\ifextended
+We will now give a formal definition of a simulation. First, if $C_1$ simulates $C_2$ under relation $R$, then for any initial states
+$\sigma_1$ and $\sigma_2$ related by $R$ and any execution of $C_2$ from $\sigma_2$ terminating at $\sigma_2'$, there must exist a $\sigma_1'$
+related by $R$ to $\sigma_2'$ such that $C_1$ can terminate at $\sigma_1'$ when executed from $\sigma_1$. Secondly, if $C_2$ can fault
+(either with $\fault$ or $\av$) when executed on $\sigma_2$, then $C_1$ must also be able to fault. This second property can be enforced
+simply by extending the relation $R$ to $R^\bot$ of type $(\Sigma \uplus \{\fault,\av\},\Sigma \uplus \{\fault,\av\})$, which relates
+each fault to both faults (and acts like $R$ otherwise). In fact, we will take the same approach as is done in~\cite{filipovic10}, and
+extend $R^\bot$ even further to relate each fault to both fault \emph{and all states}. Intuitively, this is reasonable to do because if
+we were actually using this system in practice, we would have a program logic that would guarantee that the abstract module execution
+cannot fault. Hence any execution of $C_1$ on $\sigma_1$ that faults is not actually possible. A more detailed argument is given 
+in~\cite{filipovic10} (they refer to these relation extensions as ``trumping relations'').
+
+Thus we say that $C_1$ simulates $C_2$ under relation $R$
+(written $R;C_2 \subseteq C_1;R$) when, for all $\sigma_1$, $\sigma_2$ such that $\relate{R}{\sigma_1}{\sigma_2}$:
+\begin{align*}
+\forall \rho_2 \such \relate{\den{C_2}}{\sigma_2}{\rho_2} \Rightarrow
+\exists \rho_1 \such \relate{\den{C_1}}{\sigma_1}{\rho_1} \land \relate{R^\bot}{\rho_1}{\rho_2}) 
+\end{align*}
+\else
+\end{comment}
+More formally, say that $C_1$ simulates $C_2$ under relation $R$
+(written $R;C_2 \subseteq C_1;R$) when, for all $\sigma_1$, $\sigma_2$ such that $\relate{R}{\sigma_1}{\sigma_2}$:
+\begin{align*}
+& \text{1.) } \relate{\den{C_1}}{\sigma_1}{\fault} \iff \relate{\den{C_2}}{\sigma_2}{\fault}, \quad \text{and}  \\
+& \text{2.) } \lnot \, \relate{\den{C_1}}{\sigma_1}{\fault} \Longrightarrow (\forall \sigma_2' \such \relate{\den{C_2}}{\sigma_2}{\sigma_2'} \Rightarrow
+\exists \sigma_1' \such \relate{\den{C_1}}{\sigma_1}{\sigma_1'} \land \relate{R}{\sigma_1'}{\sigma_2'}) \\
+\end{align*}
+%\fi
+
+\begin{thm}
+Suppose we have modules $(p,\eta)$ and $(q,\mu)$ with $\dom{\eta} = \dom{\mu}$ and a refinement relation $R$ as described above, such that 
+$R*\id;\mu(f) \subseteq \eta(f);R*\id$ for all $f \in \dom{\eta}$. Then, for any program $C$, $R*\id;C[(q,\mu)] \subseteq C[(p,\eta)];R*\id$.
+\end{thm}
+\begin{comment}
+\ifextended
+See the campanion Coq file~\cite{costanzo12:bpsltr} for the full proof of this theorem.  
+We will semi-formally describe here the one case 
+that highlights why behavior preservation eliminates the need for contents independence and growing 
+relations: when $C$ is simply a client command $c$.
+\else
+\end{comment}
+While the full proof can be found in~\cite{costanzo12:bpsltr}, we will semi-formally describe here the one case 
+that highlights why behavior preservation eliminates the need for contents independence and growing 
+relations: when $C$ is simply a client command $c$. 
+%\fi
+
+We wish to prove
+that $C[(p,\eta)]$ simulates $C[(q,\mu)]$, so suppose we have related states $\sigma_1$ and $\sigma_2$, and 
+executing $c$ on $\sigma_2$ results in $\sigma_2'$. Since $\sigma_1$ and $\sigma_2$ are related by $R*\id$, we
+have that $\sigma_1 = \sigma_p \dt \sigma_c$ and $\sigma_2 = \sigma_q \dt \sigma_c$. We know that
+(1) $\sigma_q \dt \sigma_c \stackrel{c}{\to} \sigma_2'$, (2) $c$ is local, and (3) $c$ runs safely on $\sigma_c$ because the
+client operation's execution must be independent of the module state $\sigma_q$ (i.e., there
+is no access violation); thus the backwards frame property tells us that
+$\sigma_2' = \sigma_q \dt \sigma_c'$ and $\sigma_c \stackrel{c}{\to} \sigma_c'$. Now, if $c$ is behavior-preserving,
+then we can simply apply the forwards frame property, framing on the state $\sigma_p$, to get that 
+$\sigma_p \# \sigma_c'$ and $\sigma_p~\dt~\sigma_c \stackrel{c}{\to} \sigma_p~\dt~\sigma_c'$, completing
+the proof for this case. However, without behavior preservation, contents independence and growing relations
+are used in~\cite{filipovic10} to finish the proof. Specifically, because we know that 
+$\sigma_q \dt \sigma_c \stackrel{c}{\to} \sigma_q \dt \sigma_c'$ and that $c$ runs safely on $\sigma_c$,
+contents independence says that $\sigma \dt \sigma_c \stackrel{c}{\to} \sigma \dt \sigma_c'$ for any
+$\sigma$ whose domain is a subset of the domain of $\sigma_q$. Therefore, we can choose $\sigma = \sigma_p$
+because $R$ is a growing relation.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\ifextended
+\subsection{Relational Separation Logic}
+\label{ssec:relationalsl}
+
+Relational Separation Logic~\cite{yang07} allows for simple reasoning about the relationship between two executions.
+Instead of deriving triples $\assert{P}{C}{Q}$, a user of the logic derives \emph{quadruples} of the form:
+\[\rassert{R}{C}{C'}{S}\]
+$R$ and $S$ are binary relations on states, rather than unary predicates. 
+Semantically, a quadruple says that if we execute the two programs in states that are related by $R$, then
+both executions are safe, and any final states will be related by $S$. Furthermore,
+we want to be able to use this logic to prove program equivalence, so we also require that initial states
+related by $R$ have the same divergence behavior. Formally, we say that the above quadruple is valid if,
+for any states $\sigma_1$, $\sigma_2$, $\sigma_1'$, $\sigma_2'$:
+\begin{align*}
+& \text{1.) } \relate{R}{\sigma_1}{\sigma_2} \Longrightarrow 
+\lnot \relate{\den{C}}{\sigma_1}{\fault} \land \lnot \relate{\den{C'}}{\sigma_2}{\fault} \\
+& \text{2.) } \relate{R}{\sigma_1}{\sigma_2} \Longrightarrow 
+(\relate{\den{C}}{\sigma_1}{\dvg} \iff \relate{\den{C'}}{\sigma_2}{\dvg}) \\
+& \text{3.) } \relate{R}{\sigma_1}{\sigma_2} \land \relate{\den{C}}{\sigma_1}{\sigma_1'} \land \relate{\den{C'}}{\sigma_2}{\sigma_2'} 
+\Longrightarrow \relate{S}{\sigma_1'}{\sigma_2'}
+\end{align*}
+
+Relational Separation Logic extends the separating conjunction to work for relations, breaking related 
+states into disjoint, correspondingly-related pieces:
+\begin{align*}
+\relate{(R*S)}{\sigma_1}{\sigma_2} \iff \exists\ \sigma_{1r}&,\ \sigma_{1s},\ \sigma_{2r},\ \sigma_{2s} \such \\
+& \sigma_1 = \sigma_{1r} \dt \sigma_{1s} \land \sigma_2 = \sigma_{2r} \dt \sigma_{2s} \land \relate{R}{\sigma_{1r}}{\sigma_{2r}} \land \relate{S}{\sigma_{1s}}{\sigma_{2s}}
+\end{align*}
+
+Just as Separation Logic has a frame rule for enabling local reasoning, Relational Separation Logic
+has a frame rule with the same purpose. This frame rule says that, given that we can derive the 
+quadruple above involving $R$, $S$, $C$, and $C'$, we can also derive the following quadruple for
+any relation $T$:
+\[\rassert{R*T}{C}{C'}{S*T}\]
+In~\cite{yang07}, it is shown that the frame rule is sound when all programs are deterministic but it is unsound
+if nondeterministic programs are allowed, so 
+this frame rule cannot be used
+when we have a nondeterministic memory allocator.
+
+To deal with nondeterministic programs, a solution is proposed in~\cite{yang07}, in which the interpretation of
+quadruples is strengthened. The new interpretation for a quadruple containing $R$, $S$, $C$, and $C'$ is that,
+for any $\sigma_1$, $\sigma_2$, $\sigma_1'$, $\sigma_2'$, $\sigma$, $\sigma'$:
+\begin{align*}
+& \text{1.) } \relate{R}{\sigma_1}{\sigma_2} \Longrightarrow 
+\lnot \relate{\den{C}}{\sigma_1}{\fault} \land \lnot \relate{\den{C'}}{\sigma_2}{\fault} \\
+& \text{2.) } \relate{R}{\sigma_1}{\sigma_2} \land \sigma_1 \# \sigma \land \sigma_2 \# \sigma' \Longrightarrow (\relate{\den{C}}{(\sigma_1 \dt \sigma)}{\dvg} \iff \relate{\den{C'}}{(\sigma_2 \dt \sigma')}{\dvg}) \\
+& \text{3.) } \relate{R}{\sigma_1}{\sigma_2} \land \relate{\den{C}}{\sigma_1}{\sigma_1'} \land \relate{\den{C'}}{\sigma_2}{\sigma_2'} 
+\Longrightarrow \relate{S}{\sigma_1'}{\sigma_2'}
+\end{align*}
+Note that this interpretation is the same as before, except that the second property is strengthened to 
+say that divergence behavior must be equivalent not only on the initial states, but also on any larger
+states. It can be shown that the frame rule becomes sound under this stronger interpretation of quadruples.
+
+In our behavior-preserving setting, it is possible to use the simpler interpretation of quadruples without
+breaking soundness of the frame rule. We could prove this by directly proving frame rule soundness, but
+instead we will take a shorter route in which we show that, when actions are behavior-preserving, a 
+quadruple is valid under the first interpretation above if and only if it is valid under the second
+interpretation~--- i.e., the two interpretations are the same in our setting. 
+
+Clearly, validity under the second interpretation implies validity under the first, since it is a
+direct strengthening. To prove the inverse, suppose we have a quadruple (involving $R$, $S$, $C$, and $C'$)
+that is valid under the first interpretation. Properties 1 and 3 of the second interpretation are 
+identical to those of the first, so all we need to show is that Property 2 holds. Suppose that 
+$\relate{R}{\sigma_1}{\sigma_2}$, $\sigma_1 \# \sigma$, and $\sigma_2 \# \sigma'$. By Property
+1 of the first interpretation, we know that $\lnot \relate{\den{C}}{\sigma_1}{\fault}$ and
+$\lnot \relate{\den{C'}}{\sigma_2}{\fault}$. Therefore, Termination Equivalence tells us that
+$\relate{\den{C}}{\sigma_1}{\dvg} \iff \relate{\den{C}}{(\sigma_1 \dt \sigma)}{\dvg}$, and that
+$\relate{\den{C'}}{\sigma_2}{\dvg} \iff \relate{\den{C'}}{(\sigma_2 \dt \sigma')}{\dvg}$.
+Furthermore, we know by Property 2 of the first interpretation that 
+$\relate{\den{C}}{\sigma_1}{\dvg} \iff \relate{\den{C'}}{\sigma_2}{\dvg}$. Hence we obtain
+our desired result.
+
+\ifextended
+\paragraph{Note}
+\fi
+In case the reader is curious, the reason that the frame rule under the first interpretation is sound when
+all programs are deterministic is simply that determinism (along with standard locality) implies Termination
+Equivalence. 
+\ifextended
+To see this, we only need to check the forwards direction, since standard locality requires the
+backwards one. Consider a situation where $\relatebr{A}{\sigma_0}{\dvg}$, $\sigma_0 \# \sigma_1$, and
+$\lnot \relatebr{A}{\sigma_0}{\fault}$. By Safety Monotonicity, we have 
+$\lnot \relatebr{A}{(\sigma_0 \dt \sigma_1)}{\fault}$. Furthermore, suppose there is some $\sigma$
+such that $\relatebr{A}{(\sigma_0 \dt \sigma_1)}{\sigma}$. Then by the Backwards Frame Property, we
+have $\sigma = \sigma_0' \dt \sigma_1$ and $\relatebr{A}{\sigma_0}{\sigma_0'}$. But we already know
+that $\relatebr{A}{\sigma_0}{\dvg}$, so this contradicts the fact that $A$ is deterministic. Therefore,
+$A$ does not relate $\sigma_0 \dt \sigma_1$ to $\fault$ or to any state $\sigma$. Since $A$ is
+required to be total, we conclude that  $\relatebr{A}{(\sigma_0 \dt \sigma_1)}{\dvg}$.
+\else
+A proof of this can be found in the extended TR.
+\fi
+%\fi
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\ifextended
+\subsection{Finite Memory}
+\label{ssec:finitemem}
+
+Since standard locality allows the program state to increase during
+execution, it does not play nicely with a model in which memory is
+finite. Consider any command that grows the program state 
+in some way. Such a command is safe on the empty state but, if we extend this empty
+state to the larger state consisting of all available memory, then
+the command becomes unsafe. Hence such a command violates Safety
+Monotonicity.
+
+There is one commonly-used solution for supporting finite memory without 
+enforcing behavior preservation: say that, instead of faulting on the state
+consisting of all of memory, a state-growing command diverges. Furthermore, to
+satisfy Termination Monotonicity, we also need to allow the command to
+diverge on \emph{any} state. The downside of this solution, therefore,
+is that it is only reasonable when we are not interested in the
+termination behavior of programs.
+
+When behavior preservation is enforced, we no longer have any issues
+with finite memory models because program state cannot increase during
+execution. The initial state is obviously contained within the finite
+memory, so all states reachable through execution must also be
+contained within memory.
+
+
+%\fi
+
+\subsection{Security}
+\label{metatheory-security}
+Although we did not have security in mind at the time of our 
+APLAS publication, it turns out that behavior preservation has some close 
+ties with security
+reasoning. In particular, both behavior preservation and noninterference
+are properties regarding equality of a program's behaviors. The former
+relates executions on a small state with those on a larger state, while
+the latter relates executions on some state with those for which the
+values of high-security data have been altered.
+
+More formally, let the notation $\den{C}(\sigma)$ represent the set of
+possible behaviors when executing $C$ on initial state $\sigma$ (in the
+context of earlier discussion, this behavior set could include final
+states or the special behaviors \fault{} or \dvg{}). Suppose that
+our program state can be represented as $\sigma_H \dt \sigma_L$, where
+$\sigma_H$ contains high-security data and $\sigma_L$ contains low-security
+data. Then classical noninterference says that changing the values within
+$\sigma_H$ will not influence the possible behaviors: 
+$\den{C}(\sigma_H \dt \sigma_L) = \den{C}(\sigma_H' \dt \sigma_L)$
+(where $\sigma_H$ and $\sigma_H'$ have equal domains). Consider
+what happens if we prove that $C$ satisfies this property, and then
+execute $C$ in a larger context with extra unused resources.
+We will now have behavior sets $\den{C}(\sigma \dt \sigma_H \dt \sigma_L)$
+and $\den{C}(\sigma \dt \sigma_H' \dt \sigma_L)$; standard locality
+will not guarantee these sets are equal. This means that 
+seemingly-unused resources could maliciously reveal information
+about the secrets in $\sigma_H$! Thus standard local reasoning
+is fundamentally incompatible with noninterference.
+
+If we enforce behavior preservation, however, then this
+incompatibility disappears. Behavior preservation guarantees
+that a program will exhibit exactly the same set of behaviors
+when extra resources are added to state, so the two sets 
+$\den{C}(\sigma \dt \sigma_H \dt \sigma_L)$
+and $\den{C}(\sigma \dt \sigma_H' \dt \sigma_L)$ will
+be equal in the example above. In Chapter~\ref{logic-chapter}, we will
+present a security-aware program logic that guarantees a certain notion
+of noninterference. This program logic is based on Separation
+Logic and thus has a frame rule for local reasoning. Given
+the insight above, it should not be surprising that we found behavior
+preservation to be extremely important for soundness of the
+security-aware program logic. Indeed, inspecting the Coq
+proofs of that program logic at the dissertation's companion
+website~\cite{costanzo-thesis}, one will notice the lemmas
+\ttt{hstep\_ff} and \ttt{lstep\_ff} are exactly the Forwards
+Frame property presented in this chapter; one will also notice
+that these lemmas are used in the proof of soundness of the 
+frame rule.
+
+
+
+
+
+
+
+
+
+
+
+

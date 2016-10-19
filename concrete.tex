@@ -1,0 +1,532 @@
+\section{Impact on a Concrete Separation Logic}
+\label{concrete}
+
+In this section, we will demonstrate how behavior-preserving
+locality can be enforced in a standard model of Separation Logic
+without any negative impact on using the program logic. In the 
+standard Reynolds' Separation Logic model~\cite{reynolds02}, a program state
+consists of two components: a variable store and a heap. When new
+memory is allocated, the memory is taken from outside the state
+and added into the heap. As mentioned in Section~\ref{locality}, this
+notion of memory allocation violates our Forwards Frame Property,
+so we will instead include an
+explicit free list inside the program state. Thus a state is now is a
+triple $(s,h,f)$ consisting of a store, a heap, and a free list, with
+the heap and free list occupying disjoint areas of
+memory. Newly-allocated memory always comes from the free list,
+while deallocated memory goes back into the free list. Since the
+standard formulation of Separation Logic assumes that memory is
+infinite and hence that allocation never fails, we similarly require
+the free list to be infinite. More specifically, we require that
+there is some location $n$ such that all locations above $n$ are in
+the free list.
+Formally, states are defined as follows:
+{\small
+\begin{align*}
+& \text{Var } V \isdef \{x,y,z,\ldots \} \qquad \text{Store } S \isdef V \to \Z \qquad \text{Heap } H \isdef \N \finpf \Z \\
+& \text{Free List } F \isdef \{N \in \pwrset{\N} \pipe \exists n \such \forall k \geq n \such k \in N\} \\
+& \text{State } \Sigma \isdef \{(s,h,f) \in S \times H \times F \pipe \text{dom}(h) \cap f = \emp\}
+\end{align*}
+}
+\indent{}As a point of clarification, we are not claiming here that including the free list in 
+the state model is a novel idea. Other systems (e.g.,~\cite{rg09}) have made use of a 
+very similar idea. The two novel contributions that we will show in this section are:
+(1) that a state model which includes an explicit free list can provide a behavior-preserving
+semantics, and (2) that the corresponding program logic can be made to be completely 
+backwards-compatible with standard Separation Logic (meaning that any valid Separation 
+Logic derivation is also a valid derivation in our logic).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[t]
+\begin{mathpar}
+
+\hspace{-15mm}    
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+
+\production{& E}
+    \prodcase{E + E'}
+    \prodcase{E - E'}
+    \prodcase{\ldots}
+    \prodcase{-1}
+    \prodcase{0}
+    \prodcase{1}
+    \prodcase{\ldots}
+    \prodcase{x}
+    \prodcase{y}
+    \prodcase{\ldots}
+    
+\production{& B}
+    \prodcase{E=E'}
+    \prodcase{\false}
+    \prodcase{B \Rightarrow B'}
+    
+\production{& P,Q}
+    \prodcase{B}
+    \prodcase{\false}
+    \prodcase{\empa}
+    \prodcase{E \mapsto E'}
+    \prodcase{P \Rightarrow Q}
+    \prodcase{P*Q}
+    
+\production{& C}
+    \prodcase{\skp}
+    \prodcase{x:=E}
+    \prodcase{x:=[E]}
+    \prodcase{[E]:=E'}
+    \prodcase{x:=\cons(E_1,\ldots,E_n)}
+    \prodcase{\free(E)}
+    \prodcase{C;C'}
+    \prodcase{\condfull{B}{C}{C'}}
+    \prodcase{\while{B}{C}}
+    
+\end{bnf}
+\end{mathpar}
+
+\caption{Assertion and Program Syntax}
+\label{syntax}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\ifextended
+We adopt the following standard notations: $\dom{h}$ is the domain of the heap $h$;
+$s[x \mapsto v]$ is the store which is identical to $s$, except that the value of variable $x$
+is updated to $v$; $h[l \mapsto v]$ is the heap which is identical to $h$, except that location
+$l$ is either added to $h$ with value $v$ if it does not exist in $h$, or updated with value $v$
+if it does exist; $h \backslash l$ is the heap resulting from removing location $l$ from $h$;
+$h_0 \# h_1$ is true just when $\dom{h_0}$ and $\dom{h_1}$ do not overlap;
+$h_0 \dt h_1$ is equal to the union of $h_0$ and $h_1$ if $h_0 \# h_1$, and is undefined otherwise.
+We also overload the disjointness (\#) operator to work with free lists~--- e.g., $h \# f$ says 
+that $\dom{h}$ and $f$ are disjoint.
+\fi
+
+Assertion syntax and program syntax are given in Figure~\ref{syntax}, and are exactly
+the same as in the standard model for Separation Logic. 
+\ifextended
+This syntax includes expressions
+$E$ and boolean expressions $B$, both of which can be evaluated under a given variable store,
+without any knowledge of the heap. These valuations are denoted by $\den{E}s$ and $\den{B}s$ 
+for a given store $s$; the former
+evaluates to an integer, while the latter evaluates to a boolean. Their formal definitions
+are omitted here, but are straightforward and standard in the literature.
+\fi
+
+Our satisfaction judgement $(s,h,f) \models P$ for an assertion $P$ is
+defined by ignoring the free list and only considering whether $(s,h)$
+satisfies $P$. The definition of $(s,h)~\models~P$ is identical to
+that of standard Separation Logic, and is given in Figure~\ref{satisfaction}.
+The most important cases are $E \mapsto E'$ and $P*Q$. $E
+\mapsto E'$ says that the current heap consists \emph{only} of the
+memory cell at address $\den{E}s$, and that the cell at that address
+maps to the value $\den{E'}s$. $P*Q$ says that we can separate the
+current heap into two disjoint subheaps $h_0$ and $h_1$, with $h_0$
+satisfying $P$ and $h_1$ satisfying $Q$. We also define the standard
+syntactic sugars $E \mapsto E_0,\ldots,E_n$ to be $(E \mapsto E_0) *
+\ldots * (E+n \mapsto E_n)$, and $E \mapsto -$ to be $\exists x . E
+\mapsto x$ (where $x$ is not free in $E$).
+
+\begin{figure}[t]
+
+\begin{align*}
+(s,h) \models B & \iff \den{B}s = \true \\
+(s,h) \models \false & \iff \text{never} \\
+(s,h) \models \empa & \iff \dom{h} = \emptyset \\
+(s,h) \models E \mapsto E' & \iff \dom{h} = \{\den{E}s\} \land h(\den{E}s) = \den{E'}s \\
+(s,h) \models P \Rightarrow Q & \iff \text{if } (s,h) \models P \text{, then } (s,h) \models Q \\
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+(s,h) \models P*Q & \iff 
+\left(\begin{aligned}
+\exists & h_0, h_1 \such h_0 \# h_1 \land h_0 \dt h_1 = h \hspace{1mm} \land \\
+& (s,h_0) \models P \land (s,h_1) \models Q
+\end{aligned}\right)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{align*}
+
+\caption{Satisfaction of Assertions}
+\label{satisfaction}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\ifextended
+
+Figure~\ref{opsem} defines the small-step operational semantics for our 
+machine. $x:=[E]$ and
+$[E]:=E'$ correspond to reading from and writing to the heap, respectively. $x:=\cons(E_1,\ldots,E_n)$
+allocates a nondeterministically-chosen contiguous block of $n$ heap cells from the free list.
+The most interesting rules are those for allocation and deallocation, since they make use of the free list. 
+Note that none of the operations make use of any memory existing outside the program state~---
+this is the key for obtaining behavior-preservation.
+
+\begin{figure*}
+
+\begin{mathpar}
+\inferrule*[right=(SKIP)]
+{\hspace{1mm}}
+{\sigma,\skp;C \bpstep \sigma,C}
+
+\inferrule*[right=(ASSGN)]
+{\hspace{1mm}}
+{(s,h,f),x:=E \bpstep (s[x \mapsto \den{E}s],h,f),\skp}
+
+\inferrule*[right=(HEAP-READ)]
+{\den{E}s \in \dom{h}}
+{(s,h,f),x:=[E] \bpstep (s[x \mapsto h(\den{E}s)],h,f),\skp}
+
+\inferrule*[right=(HEAP-WRITE)]
+{\den{E}s \in \dom{h}}
+{(s,h,f),[E]:=E' \bpstep (s,h[\den{E}s \mapsto \den{E'}s],f),\skp}
+
+\inferrule*[right=(CONS)]
+{\forall i \in [1,n] \such l+i-1 \in f}
+{(s,h,f),x:=\cons(E_1,\ldots,E_n) \bpstep \\
+(s[x \mapsto l], h[l \mapsto \den{E_1}s]\ldots[l+n-1 \mapsto \den{E_n}s], f-\{l,\ldots,l+n-1\}),\skp}
+
+\inferrule*[right=(FREE)]
+{\den{E}s \in \dom{h}}
+{(s,h,f),\free(E) \bpstep (s,h \backslash \den{E}s,f \cup \{\den{E}s\}),\skp}
+
+\inferrule*[right=(SEQ)]
+{\sigma,C \bpstep \sigma',C'}
+{\sigma,C;C'' \bpstep \sigma',C';C''}
+
+\inferrule*[right=(IF-TRUE)]
+{\den{B}s = \texttt{true}}
+{\sigma,\condfull{B}{C_1}{C_2} \bpstep \sigma,C_1}
+
+\inferrule*[right=(IF-FALSE)]
+{\den{B}s = \texttt{false}}
+{\sigma,\condfull{B}{C_1}{C_2} \bpstep \sigma,C_2}
+
+\inferrule*[right=(WHILE-TRUE)]
+{\den{B}s = \texttt{true}}
+{\sigma,\while{B}{C} \bpstep \sigma,C;\while{B}{C}}
+
+\inferrule*[right=(WHILE-FALSE)]
+{\den{B}s = \texttt{false}}
+{\sigma,\while{B}{C} \bpstep \sigma,\skp}
+\end{mathpar}
+
+\caption{Small-Step Operational Semantics}
+\label{opsem}
+\end{figure*}
+
+\else
+
+The small-step operational semantics for our machine is defined as
+$\sigma,C \bpstep \sigma',C'$ and is straightforward; the full details can
+be found in the extended TR. The most interesting aspects are the rules 
+for allocation and deallocation, since they make use of the free list.
+$x:=\cons(E_1,\ldots,E_n)$ allocates a nondeterministically-chosen
+contiguous block of $n$ heap cells from the free list, while $\free(E)$
+puts the single heap cell pointed to by $E$ back onto the free list.
+None of the operations make use of any memory existing outside the program 
+state~--- this is the key for obtaining behavior-preservation.
+\fi
+
+To see how out state model fits into the structure defined in Section~\ref{locality},
+we need to define the state combination operator. Given two states $\sigma_1 = (s_1,h_1,f_1)$ and
+$\sigma_2 = (s_2,h_2,f_2)$, the combined state $\sigma_1 \dt \sigma_2$ is equal to 
+$(s_1,h_1 \uplus h_2,f_1)$ if $s_1 = s_2$, $f_1 = f_2$, and the domains of $h_1$ and $h_2$ are
+disjoint; otherwise, the combination is undefined. Note that this combined state satisfies the
+requisite condition $\text{dom}(h_1 \uplus h_2) \cap f_1 = \emp$ because $h_1$, $h_2$, and $f_1$
+are pairwise disjoint by assumption. The most important aspect of this definition of state 
+combination is that we can never change the free list when adding extra resources. This guarantees
+behavior preservation of the nondeterministic memory allocator because the allocator's set of 
+possible behaviors is precisely defined by the free list.
+
+In order to formally compare our logic to standard Separation Logic, we 
+need to provide the standard version of the small-step operational semantics,
+denoted as $(s,h),C \istep (s',h'),C'$. This definition is nearly identical
+to Figure~\ref{opsem}, except that all free lists are removed from program
+state, and the (CONS) rule precondition is modified to only require that
+the newly-allocated locations are not in $\dom{h}$.
+\ifextended
+It is then possible to show the following relationship between the
+two operational semantics (note that the full proofs for all of the following 
+lemmas and theorems can be found in our Coq implementation~\cite{costanzo-thesis}):
+
+\begin{lem}
+\label{opequiv}
+\begin{align*}
+(s,h),C \istepn{n} & (s',h'),C' \iff \exists f,f' \such (s,h,f),C \bpstepn{n} (s',h',f'),C'
+\end{align*}
+\end{lem}
+\else
+We formalize this semantics in the extended TR, and prove the following relationship between the
+two operational semantics:
+{\small
+\begin{align*}
+(s,h),C \istepn{n} & (s',h'),C' \iff \exists f,f' \such (s,h,f),C \bpstepn{n} (s',h',f'),C'
+\end{align*}}
+\fi
+\ifextended
+\begin{proof}
+The backwards direction is a straightforward proof by induction. For the forwards direction, we actually
+prove a stronger statement by picking our $f$ and $f'$ to be exactly $\N-\dom{h}$ and $\N-\dom{h'}$,
+respectively. The proof of this stronger statement is then straightforward by induction. Picking the free
+lists in this way showcases how the Separation Logic model can be interpreted as having an implicit free list
+containing everything not in the heap.
+\end{proof}
+
+\fi
+\ifextended
+The inference rules in the form $\assertd{P}{C}{Q}$ for our logic
+are exactly the same as those used in standard Separation Logic.
+We give many of these inference rules in Figure~\ref{infrules}; the
+reader may refer to \cite{reynolds02} for more.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}
+\begin{mathpar}
+\inferrule*[right=(SKIP)]
+{\hspace{1mm}}
+{\assertd{\empa}{\skp}{\empa}}
+%
+~~~
+\inferrule*[right=(ASSGN)]
+{\hspace{1mm}}
+{\assertd{x=y \land \empa}{x:=E}{x=E\sub{y}{x} \land \empa}}
+
+\inferrule*[right=(HEAP-READ)]
+{\hspace{1mm}}
+{\assertd{x=y \land E \mapsto z}{x:=[E]}{x=z \land E\sub{y}{x} \mapsto z}}
+
+\inferrule*[right=(HEAP-WRITE)]
+{\hspace{1mm}}
+{\assertd{E \mapsto -}{[E]:=E'}{E \mapsto E'}}
+
+\inferrule*[right=(CONS)]
+{\hspace{1mm}}
+{\assertd{x=y \land \empa}{x:=\cons(E_1,\ldots,E_k)}{x \mapsto E_1\sub{y}{x},\ldots,E_k\sub{y}{x}}}
+
+\inferrule*[right=(FREE)]
+{\hspace{1mm}}
+{\assertd{E \mapsto -}{\free(E)}{\empa}}
+
+\inferrule*[right=(SEQ)]
+{\assertd{P}{C_1}{Q} \\
+\assertd{Q}{C_2}{R}}
+{\assertd{P}{C_1;C_2}{R}}
+
+\inferrule*[right=(IF)]
+{\assertd{B \land P}{C_1}{Q} \\
+\assertd{\lnot B \land P}{C_2}{Q}}
+{\assertd{P}{\condfull{B}{C_1}{C_2}}{Q}}
+
+\inferrule*[right=(WHILE)]
+{\assertd{B \land P}{C}{P}}
+{\assertd{P}{\while{B}{C}}{\lnot B \land P}}
+
+\inferrule*[right=(CONSEQ)]
+{P' \Rightarrow P \\
+Q \Rightarrow Q' \\
+\assertd{P}{C}{Q}}
+{\assertd{P'}{C}{Q'}}
+
+\inferrule*[right=(CONJ)]
+{\assertd{P_1}{C}{Q_1} \\
+\assertd{P_2}{C}{Q_2}}
+{\assertd{P_1 \land P_2}{C}{Q_1 \land Q_2}}
+
+\inferrule*[right=(DISJ)]
+{\assertd{P_1}{C}{Q_1} \\
+\assertd{P_2}{C}{Q_2}}
+{\assertd{P_1 \lor P_2}{C}{Q_1 \lor Q_2}}
+
+\inferrule*[right=(FRAME)]
+{\assertd{P}{C}{Q} \\
+\texttt{modifies}(C) \cap \texttt{vars}(R) = \emp}
+{\assertd{P*R}{C}{Q*R}}
+\end{mathpar}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\caption{Some Separation Logic Inference Rules}
+\label{infrules}
+\end{figure}
+%%
+
+\fi
+\ifextended
+We next define safe execution and semantic triples. A configuration $(\sigma,C)$
+is \emph{safe} if it can never get stuck in a non-halting state:
+\begin{align*}
+\bpsafe(\sigma,C) \isdef \, \forall \sigma',C' \such 
+\sigma,C \bpsteps \sigma',C' \, \land \, C' \neq \skp 
+\,\, \Longrightarrow \,\, \exists \sigma'',C'' \such \sigma',C' \bpstep \sigma'',C''
+\end{align*}
+\noindent{}
+A triple $\assertm{P}{C}{Q}$ is then \emph{semantically valid} when, for all $\sigma$, $\sigma'$:
+\begin{align*}
+& \text{1.) if } \sigma \models P\text{, then } \bpsafe(\sigma,C) \\
+& \text{2.) if } \sigma \models P \text{ and } \sigma,C \bpsteps \sigma',\skp \text{, then } \sigma' \models Q
+\end{align*}
+Semantic validity of standard Separation Logic triples is defined in the same way, but using the operational semantics
+for Separation Logic. We will write this as $\assertsl{P}{C}{Q}$. Note that we are only considering a
+\emph{partial correctness} definition of validity here, meaning that programs are not required to terminate.
+
+We now formally relate semantic validity of our logic with standard Separation Logic,
+with the help of a minor technical lemma:
+
+\begin{lem}
+\label{safestep}
+\begin{align*}
+(s,h), & C \istep (s',h'),C' \Longrightarrow \forall f \such (f \# h \Rightarrow \exists \sigma \such (s,h,f),C \bpstep \sigma,C')
+\end{align*}
+\end{lem}
+
+\begin{proof}
+Straightforward by induction on the rules for stepping.
+\end{proof}
+
+\begin{thm}[Equivalence of Semantic Validity]
+\label{semantic-equiv}
+\begin{align*}
+\assertsl{P}{C}{Q} \iff \assertm{P}{C}{Q}
+\end{align*}
+\end{thm}
+
+\begin{proof}
+First, suppose that $\assertsl{P}{C}{Q}$. To prove the first property of semantic validity, suppose that
+$(s,h,f) \models P$, and consider some execution $(s,h,f),C \bpsteps (s',h',f'),C'$ with
+$C' \neq \skp$. Then we need to show that $(s',h',f'),C'$ can take another step. By Lemma~\ref{opequiv},
+we have that $(s,h),C \isteps (s',h'),C'$. Since $(s,h) \models P$, we know that $\bpsafe((s,h),C)$, and
+so $(s',h'),C' \istep (s'',h''),C''$ for some $s''$, $h''$, $C''$. Therefore Lemma~\ref{safestep} tells
+us that $(s',h',f'),C'$ can indeed take a step. For the second property, suppose that $(s,h,f) \models P$
+and $(s,h,f),C \bpsteps (s',h',f'),\skp$. Then Lemma~\ref{opequiv} tells us that $(s,h),C \isteps (s',h'),\skp$,
+meaning that $(s',h') \models Q$, and so $(s',h',f') \models Q$.
+
+Now suppose that $\assertm{P}{C}{Q}$. For the first property, suppose that $(s,h) \models P$ and 
+$(s,h),C \isteps (s',h'),C'$ with $C' \neq \skp$. Lemma~\ref{opequiv} gives us 
+$(s,h,f),C \bpsteps (s',h',f'),C'$ for some $f$ and $f'$, which means that $(s',h',f'),C' \bpstep (s'',h'',f''),C''$
+for some $s''$, $h''$, $f''$, $C''$ (since $(s,h,f) \models P)$. Therefore Lemma~\ref{opequiv} 
+gives us $(s',h'),C' \istep (s'',h''),C''$, as desired. For the second property, suppose $(s,h) \models P$
+and $(s,h),C \isteps (s',h'),\skp$. By Lemma~\ref{opequiv}, we have 
+\[
+(s,h,f),C \isteps (s',h',f'),\skp
+\]
+for some $f$ and $f'$. Since $(s,h,f) \models P$, this means that $(s',h',f') \models Q$, and so
+$(s',h') \models Q$. 
+\end{proof}
+
+\begin{thm}[Soundness and Completeness]
+\label{sound-complete}
+\begin{align*}
+\assertd{P}{C}{Q} \iff \assertm{P}{C}{Q}
+\end{align*}
+\end{thm}
+
+\begin{proof}
+Note that $\assertd{P}{C}{Q}$ has the same definition in both our logic and in Separation Logic, since we
+use the same assertion language and inference rules. Therefore, because Separation Logic is known to be
+sound and complete, we have that $\assertd{P}{C}{Q} \iff \assertsl{P}{C}{Q}$. Applying
+Theorem~\ref{semantic-equiv} gives the desired result.
+\end{proof}
+
+\fi
+\ifextended
+
+We have thus shown that our new model does not cause any complications in the usage of Separation Logic.
+\else
+\noindent{}The inference rules in the form $\assertd{P}{C}{Q}$ for our logic
+are same as those used in standard Separation Logic.
+In the extended TR, we state all the inference rules and prove that our logic is both sound and 
+complete; therefore, behavior preservation does not cause any complications in the usage of Separation 
+Logic. 
+\fi
+Any specification that can be proved using the standard model can also be proved using our model,
+with the exact same application of inference rules (since they completely ignore the
+free list within program state). 
+\ifextended
+We now
+only need to show that our model enjoys the stronger, behavior-preserving notion of locality. As
+described in Section~\ref{locality}, this locality is composed of Safety Monotonicity, Termination
+Equivalence, and the Forward and Backwards Frame Properties. We first prove that the two frame 
+properties hold:
+
+\begin{thm}[Frame Properties]
+\begin{align*}
+& \text{1.) } (s,h_0,f),C \bpstepn{n} (s',h_0',f'),C' \land h_0 \# h_1 \land f \# h_1 \Longrightarrow \\
+& \hspace{8mm} h_0' \# h_1 \land (s,h_0 \dt h_1,f),C \bpstepn{n} (s',h_0' \dt h_1,f'),C' \\
+& \text{2.) } \bpsafe((s,h_0,f),C) \land (s,h_0 \dt h_1,f),C \bpstepn{n} (s',h',f'),C' \Longrightarrow \\
+& \hspace{8mm} \exists h_0' \such h' = h_0' \dt h_1 \land (s,h_0,f),C \bpstepn{n} (s',h_0',f'),C'
+\end{align*}
+\end{thm}
+
+\begin{proof}
+Straightforward by induction on the derivation rules for stepping. For details, see the Coq implementation.
+\end{proof}
+
+It is then easy to show that these Frame Properties imply both Safety Monotonicity and Termination Equivalence.
+
+\begin{lem}[Safety Monotonicity]
+\begin{align*}
+\bpsafe & ((s,h_0,f),C) \land h_0 \# h_1 \land f \# h_1 \Longrightarrow \bpsafe((s,h_0 \dt h_1,f),C)
+\end{align*}
+\end{lem}
+
+\begin{proof}
+Suppose that $\bpsafe((s,h_0,f),C)$, and consider an execution on the large state 
+$(s,h_0 \dt h_1,f),C \bpstepn{n} (s',h',f'),C'$ with $C' \neq \skp$. Then the Backwards Frame Property tells us
+that $h' = h_0' \dt h_1$ and $(s,h_0,f),C \bpstepn{n} (s',h_0',f'),C'$. Since $\bpsafe((s,h_0,f),C)$ and $C' \neq \skp$,
+we see that $(s',h_0',f'),C' \bpstep (s'',h_0'',f''),C''$ for some $s''$, $h_0''$, $f''$, $C''$. Thus we can now use the 
+Forwards Frame Property (clearly $h_1 \# f'$ since $(s',h_0' \dt h_1,f')$ is a well-typed state) to obtain 
+$(s',h_0' \dt h_1,f'),C' \bpstep (s'',h_0'' \dt h_1,f''),C''$, and so $\bpsafe((s,h_0 \dt h_1,f),C)$ does indeed hold.
+\end{proof}
+
+In order to define 
+Termination Equivalence, we first need to define divergence. We say that $\sigma$ diverges on $C$,
+written  $\sigma,C \diverges$, if there exists an infinite path of steps starting from $\sigma,C$. More formally:
+\begin{align*}
+\sigma,C \diverges & \isdef \forall n \such \exists \sigma',C' \such \sigma,C \bpstepn{n} \sigma',C'
+\end{align*}
+
+\begin{lem}[Termination Equivalence]
+\begin{align*}
+\bpsafe & ((s,h_0,f),C) \land h_0 \# h_1 \land f \# h_1 \Rightarrow ((s,h_0,f),C \diverges \iff (s,h_0 \dt h_1,f),C \diverges)
+\end{align*}
+\end{lem}
+
+\begin{proof}
+First, suppose $(s,h_0,f),C \diverges$, and pick any $n$. Then there are some $s'$, $h_0'$, $f'$, $C'$ such
+that $(s,h_0,f),C \bpstepn{n} (s',h_0',f'),C'$. Thus the Forwards Frame Property tells us that $h_0' \# h_1$ and
+$(s,h_0 \dt h_1,f),C \bpstepn{n} (s',h_0' \dt h_1,f'),C'$, as desired. For the other direction, suppose
+$(s,h_0 \dt h_1,f),C$ and pick any $n$. Then  $(s,h_0 \dt h_1,f),C \bpstepn{n} (s',h',f'),C'$ for some $s'$,
+$h'$, $f'$, $C'$. Since $\bpsafe((s,h_0,f),C)$, the Backwards Frame Property tells us 
+that $h' = h_0' \dt h_1$ for some $h_0'$, and $(s,h_0,f),C \bpstepn{n} (s',h_0',f'),C'$, as desired.
+\end{proof}
+
+\else
+Also in the TR, we prove that 
+our model enjoys the stronger, behavior-preserving notion of locality
+described in Sec~\ref{locality}.
+\fi
+
+\begin{comment}
+\ifextended
+We conclude this section with a quick note on reasoning about the free list. We presented our logic with
+the purpose of showing that, at the level of inference rules and derivations, it works exactly the same as
+standard Separation Logic. However, at the level of the underlying model, we now have this free list within the state.
+Therefore, if we so desire, we could define additional assertions and inference rules allowing for more precise reasoning
+involving the free list. One idea might be to have a separate, free list section of assertions in which we write,
+for example, $E*\true$ to claim that $E$ is a part of the free list. Then the axiom for $\free$
+would look something like:
+{\small
+\begin{align*}
+\assert{E \mapsto -; \true}{\free(E)}{\empa; E*\true}
+\end{align*}}
+
+\else
+Even though our logic works exactly the same as
+standard Separation Logic, our underlying
+model now has this free list within the state.  Therefore, if we
+so desire, we could define additional assertions and inference rules
+allowing for more precise reasoning involving the free list. One idea is to have
+a separate, free list section of assertions in which we write, for
+example, $E*\true$ to claim that $E$ is a part of the free list. Then
+the axiom for $\free$ would look like:
+\begin{align*}
+\assert{E \mapsto -; \true}{\free(E)}{\empa; E*\true}
+\end{align*}
+
+\fi
+\end{comment}

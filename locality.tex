@@ -1,0 +1,205 @@
+\label{bpsl-chapter}
+
+In this chapter, we present our work published in 
+APLAS~2012~\cite{costanzo-bpsl}. In the context of 
+Separation Logic~\cite{io00,reynolds02,yang:fossacs02,coy07},
+we define and defend a strong notion of locality, deemed
+``behavior preservation''. Locality concerns the relationship
+between a program's execution over a small footprint state
+and its execution over a larger state containing unused
+resources. Our key idea is to require a behavior-preserving
+formulation of locality, where the program's behavior is
+completely unchanged by the extra unused resources.
+
+We describe here (and in the paper) how behavior preservation
+simplifies numerous metatheoretical difficulties in Separation Logic.
+This is mostly orthogonal to the rest of the dissertation, as it does
+not concern security. However, we will discuss some interesting
+connections to security at the end of the chapter, by
+relating behavior preservation with classical noninterference.
+
+\section{Local Reasoning and the Frame Rule}
+\label{locality}
+
+Separation Logic is a program logic that allows for formal
+reasoning about the behavior of heap-manipulating C-like 
+programs. The most important concept is the 
+\emph{separating conjunction}~--- the assertion $P*Q$ holds
+on a program state if that state can be separated into 
+two \emph{disjoint} portions, one satisfying $P$ and the
+other satisfying $Q$. The following \emph{frame rule} is
+used to facilitate local reasoning:
+\begin{mathpar}
+\inferrule
+{\judg{}{P}{C}{Q}}
+{\judg{}{P * R}{C}{Q * R}}
+\end{mathpar}
+\noindent{}That is, if a program $C$ is verified to satisfy
+a pre/post condition pair $(P,Q)$, then we can automatically 
+infer that it also satisfies the pair $(P*R,Q*R)$, where
+$R$ describes program state that is disjoint from both
+$P$ and $Q$. Intuitively, this seems to indicate that the 
+unused resources in $R$ do not affect $C$'s behavior.
+Formally, however, the notion of locality required by the
+frame rule is actually weaker than this intuition. There
+are three locality-related properties that together imply 
+soundness of the frame rule, commonly called Safety Monotonicity,
+the Frame Property, and Termination Monotonicity (the
+latter is only needed for termination-sensitive reasoning).
+
+\begin{comment}
+In standard Separation
+Logic~\cite{io00,reynolds02,yang:fossacs02,coy07}, there are two
+locality properties, known as Safety Monotonicity and the Frame
+Property, that together imply soundness of the frame rule.  Safety
+Monotonicity says that any time a program executes safely in a certain
+state, the same program must also execute safely in any larger
+state~--- in other words, unused resources cannot cause a program to
+crash. The Frame Property says that if a program executes safely on a
+small state, then any terminating execution of the program on a larger
+state can be tracked back to some terminating execution on the small
+state by assuming that the extra added state has no effect and is
+unchanged. Furthermore, there is a third property, called Termination
+Monotonicity, that is required whenever we are interested in reasoning
+about divergence (nontermination).  This property says that if a
+program executes safely and never diverges on a small state, then it
+cannot diverge on any larger state.
+\end{comment}
+
+To describe these properties more formally, we first 
+introduce some notations for combining disjoint program states. 
+%We will describe the theory
+%somewhat informally here; full formal detail will be described later
+%in Section~\ref{abslogic}. 
+We define states $\sigma$ to be members of
+an abstract set $\Sigma$. We assume that whenever two states
+$\sigma_0$ and $\sigma_1$ are ``disjoint,'' written $\sigma_0 \#
+\sigma_1$, they can be combined to form the larger state $\sigma_0 \dt
+\sigma_1$. Intuitively, two states are disjoint when their heaps occupy
+disjoint areas of memory.
+
+We represent the semantic meaning of a program $C$ by a binary
+relation $\den{C}$, indicating all possible whole-execution behaviors
+of $C$. We use the common notational convention
+$\relate{R}{a}{b}$ for a binary relation $R$ to denote $(a,b) \in
+R$. Intuitively, $\relate{\den{C}}{\sigma}{\sigma'}$ means that, when
+executing $C$ on initial state $\sigma$, it is possible to terminate
+in state $\sigma'$.  Note that if $\sigma$ is related by $\den{C}$ to
+more than one state, this simply means that $C$ is a nondeterministic
+program.
+We also define two special behaviors $\fault$ and $\dvg$:
+\begin{itemize}
+\item $\relate{\den{C}}{\sigma}{\fault}$ means that $C$ can crash or get
+stuck when executed on $\sigma$
+\item $\relate{\den{C}}{\sigma}{\dvg}$ means that $C$ can diverge (execute
+forever) when executed on $\sigma$
+\end{itemize}
+
+As a notational convention, we use $\tau$ to range over elements of
+$\Sigma \cup \{\fault,\dvg\}$. We require that for any state $\sigma$
+and program $C$, there is always at least one $\tau$ such that
+$\relate{\den{C}}{\sigma}{\tau}$. In other words, every execution must
+either crash, go on forever, or terminate in some state.
+
+Now we define the properties mentioned above. Following are definitions of
+Safety Monotonicity, the Frame Property, and Termination Monotonicity, respectively
+(when not explicitly mentioned, assume all variables are universally quantified):
+\begin{align*}
+& \text{1.) }\ \lnot \relate{\den{C}}{\sigma_0}{\fault} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  \lnot \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{\fault} \\ 
+& \text{2.) }\ \lnot \relate{\den{C}}{\sigma_0}{\fault} \land \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{\sigma'} \Longrightarrow \exists \sigma_0' \such \sigma' = \sigma_0' \dt \sigma_1 \land \relate{\den{C}}{\sigma_0}{\sigma_0'} \\
+& \text{3.) }\ \lnot \relate{\den{C}}{\sigma_0}{\fault} \land \lnot \relate{\den{C}}{\sigma_0}{\dvg} 
+  \land \sigma_0 \# \sigma_1
+\Longrightarrow \lnot \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{\dvg}\end{align*}
+\noindent{}Safety Monotonicity says that any time a program executes safely 
+in a certain state, the same program must also execute safely in any larger
+state~--- in other words, unused resources cannot cause a program to
+crash. The Frame Property says that if a program executes safely on a
+small state, then any terminating execution of the program on a larger
+state can be tracked back to some terminating execution on the small
+state by assuming that the extra added state has no effect and is
+unchanged. Termination Monotonicity says that if a
+program executes safely and never diverges on a small state, then it
+cannot diverge on any larger state.
+
+In standard Separation Logic, these three properties are required to
+hold for all programs $C$, and the frame rule is then automatically
+guaranteed to be sound. The properties represent 
+the \emph{minimum} requirement needed to make the frame rule sound~--- they
+are as weak as they can possibly be without breaking the logic. They are
+not defined to correspond with any intuitive notion of locality. As a
+result, there are two subtleties in the definition that might seem a
+bit odd. We will now describe these subtleties and the changes we make
+to get rid of them. Note that we are not arguing in this section that
+there is any benefit to changing locality in this way (other than the
+arguably vacuous benefit of corresponding to our ``intuition'' of
+locality)~--- the benefit will become clear when we discuss how our
+change simplifies the metatheory in Section~\ref{metatheory}.
+
+The first subtlety is that Termination Monotonicity only applies in
+one direction. This means that we could have a program $C$ that runs
+forever on a state $\sigma$, but when we add unused state, we suddenly
+lose the ability for that infinite execution to occur. We can easily
+get rid of this subtlety by replacing Termination Monoticity with the
+following Termination Equivalence property:
+{\small
+\begin{align*}
+\lnot \relate{& \den{C}}{\sigma_0}{\fault} \land \sigma_0 \# \sigma_1 \Longrightarrow
+  (\relate{\den{C}}{\sigma_0}{\dvg} \iff \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{\dvg})
+\end{align*}}
+\indent{}The second subtlety is that locality gives us a way of tracking an execution on a large state 
+back to a small one, but it does not allow for the other way around. This means that there
+can be an execution on a state $\sigma$ that becomes invalid when we add unused state. This 
+subtlety is a little trickier to remedy than the other. If we think of the Frame Property as
+really being a ``Backwards Frame Property,'' in the sense that it only works in the direction
+from large state to small state, then we clearly need to require a corresponding Forwards
+Frame Property. We would like to say that if $C$ takes $\sigma_0$ to $\sigma_0'$ and we add 
+the unused state $\sigma_1$, then $C$ takes $\sigma_0 \dt \sigma_1$ to $\sigma_0' \dt \sigma_1$:
+{\small
+\begin{align*}
+\relate{\den{C}}{\sigma_0}{\sigma_0'} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)}
+\end{align*}}
+\indent{}Unfortunately, there is no guarantee that $\sigma_0' \dt \sigma_1$ is defined, as the
+states might not occupy disjoint areas of memory. In fact, if $C$ causes our initial state
+to grow, say by allocating memory, then there will always be some $\sigma_1$ that is 
+disjoint from $\sigma_0$ but not from $\sigma_0'$ (e.g., take $\sigma_1$ to be exactly that
+allocated memory). Therefore, it seems as if we are doomed to lose behavior in such a situation
+upon adding unused state.
+
+There is, however, a solution worth considering: we could disallow programs from ever increasing state.
+In other words, we can require that whenever $C$ takes $\sigma_0$ to $\sigma_0'$, the area of
+memory occupied by $\sigma_0'$ must be a subset of that occupied by $\sigma_0$. In this way,
+anything that is disjoint from $\sigma_0$ must also be disjoint from $\sigma_0'$, so we
+will not lose any behavior. Formally, we express this property as:
+{\small\begin{align*}
+\relate{\den{C}}{\sigma_0}{\sigma_0'} \Longrightarrow (\forall \sigma_1 \such \sigma_0 \# \sigma_1 \Rightarrow \sigma_0' \# \sigma_1)
+\end{align*}}
+\indent{}We can conveniently combine this property with the previous one to express
+the Forwards Frame Property as the following condition:
+{\small
+\begin{align*}
+\relate{\den{C}}{\sigma_0}{\sigma_0'} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  \sigma_0' \# \sigma_1 \land \relate{\den{C}}{(\sigma_0 \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)}
+\end{align*}}
+\indent{}At first glance, it may seem imprudent to impose this requirement,
+as it apparently disallows memory allocation. However, it is in fact still possible to model 
+memory allocation~--- we just have to be a little clever about it. Specifically, we can include
+a set of memory locations in our state that we designate to be the ``free list''. When memory
+is allocated, all allocated cells must be taken from the free list. Because the free list
+is represented explicitly in program state, any extra unused resources must be disjoint
+not only from the heap, but also from the free list. Contrast this to standard 
+Separation Logic, in which newly-allocated heap cells are taken from outside the program 
+state. In the next section, we will show that we can add a free list in this way to the 
+model of Separation Logic without requiring a change to any of the inference rules.
+
+We conclude this section with a brief justification of the term ``behavior preservation.''
+Given that $C$ runs safely on a state $\sigma_0$, we think of a behavior of $C$ on $\sigma_0$ as
+a particular execution, which can either diverge or terminate at some state $\sigma_0'$. 
+The Forwards Frame Property tells us that execution on a larger state $\sigma_0 \dt \sigma_1$
+simulates execution on the smaller state $\sigma_0$, while the Backwards (standard) Frame Property
+says that execution on the smaller state simulates execution on the larger one. Since standard locality
+only requires simulation in one direction, it is possible for a program to have fewer valid executions, or 
+behaviors, when executing on $\sigma_0 \dt \sigma_1$ as opposed to just $\sigma_0$. Our stronger
+locality disallows this from happening, enforcing a \emph{bisimulation} under which all 
+behaviors (including divergence) are preserved when extra resources are added.

@@ -1,0 +1,581 @@
+\label{logic-chapter}
+Our work published in POST 2014~\cite{costanzo-ddifc}
+presents a program logic for proving that code is secure with respect
+to a general, expressive security policy. This chapter will present the formalization of this
+program logic, and will show how a particular nontrivial program is verified secure
+using the logic. However, after considering the implications of using
+the logic, as well as its relative incompleteness, we will arrive at
+a crucial conclusion: it would be far more ideal to verify security
+in a way that is not specific to a particular program logic. Later
+chapters then demonstrate that this ideal is in fact achievable.
+Hence this chapter should be taken with a grain of salt; it is important
+for developing a solid understanding of formal security verification
+(especially with respect to policy specification), but this
+dissertation ultimately advocates \emph{against} relying upon any specific program 
+logic such as the one presented here.
+
+\section{Program Logic Overview}
+
+The ultimate goal of our security-aware program logic is to verify
+interesting security policies over low-level systems code. For convenience
+we will use a toy C-like language here that supports heap manipulation and
+pointer arithmetic; it should generally be clear how to
+extend the toy language with other C features. The language will not support
+unstructured control flow (e.g., ``goto''), however, so it is not designed
+for directly reasoning about assembly code. This is one reason why we will
+eventually decide to move away from a specific program logic and instead
+design a more general methodology that works for any code written in any
+language.
+
+Our program logic will perform security reasoning by directly modeling 
+dynamic label tainting (as described in Section~\ref{intro-policies}).
+For simplicity, we will use a label lattice consisting only of the two
+labels \lo{} and \hi{}, with $\lo{} \sqsubseteq \hi{}$. This lattice
+can easily be mapped to a more intricate one, however: for a given observer
+principal $p$ with label $L_p$, the \lo{} label represents all labels in the 
+more intricate lattice which are equal to or below $L_p$, while \hi{} represents
+all other labels.
+
+Label propagation is done in a mostly obvious way. All values in the variable
+store and the global memory heap are associated with a label (\lo{} or \hi{}).
+If we have a direct assignment such as $x:=y$,
+then the label of $y$'s data propagates into $x$ along with the data itself. We compute the composite
+label of an expression such as $2*x + z$ to be the least upper bound of the labels of its constituent
+parts (for the two-element lattice of \lo{} and \hi{}, this will be \lo{} if and only if each 
+constituent label is \lo{}). For the heap-read command $x:=[E]$, we must propagate both the 
+label of $E$ and the label of the data located at heap address $E$ into $x$. In other words, if
+we read some low-security data from the heap using a high-security pointer, the result must
+be tainted as high security in order for our information flow tracking to be accurate.
+Similarly, the heap-write command $[E]:=E'$ must propagate both the label of $E'$ and the label of 
+pointer $E$ into the location $E$ in the heap. As a general rule for any of these atomic commands,
+we compute the composite label of the entire read-set, and propagate that into all locations in
+the write-set.
+
+\subsection{Security Formulation}
+
+Our security guarantee is based on pure noninterference,
+which says that the initial values of \hi{} data have no effect on the ``observable behavior'' of
+a program's execution. We choose to define observable behavior in terms of a special output channel.
+We include an output command in our language, and an execution's observable behavior is defined to
+be exactly the sequence of values that the execution outputs.
+
+The standard way to express this noninterference property formally is in terms of two executions:
+a program is deemed to be noninterfering if two executions of the program from \emph{observably
+equivalent} initial states always yield identical outputs. Two states are defined to be observably
+equivalent when only their high-security values differ. Thus this property describes what one would 
+expect: changing the value of any high-security data in the initial state will cause no change in 
+the program's output. As hinted at during the examples of Section~\ref{intro-policies}, we will 
+actually use a weaker version of noninterference to allow for security policies with certain 
+well-specified flows from high security to low (e.g., declassification).
+
+We accomplish this weakening of noninterference by
+requiring a precondition to hold on the initial state of an execution. That is, we alter the 
+noninterference property to say that two executions will yield identical outputs if they start from 
+two observably equivalent states that both satisfy some state predicate $P$. This weakening 
+is interesting for two reasons. First, it provides a clean interface between information-flow 
+reasoning and Hoare Logic (a program logic that derives pre/postconditions as state predicates). 
+Second, this weaker property describes a certain level of dependency between high-security inputs 
+and low-security outputs, rather than the complete independence of pure noninterference. This is
+key for allowing interesting, real-world security policies.
+To better understand this property, let us revisit the examples of Section~\ref{intro-policies}.
+
+\paragraph{Public Parity}
+Suppose we have a variable $x$ that contains Alice's secret value $v$, and Alice wishes
+to only publicly release the parity of $v$. We can prove that some program $C$ obeys this
+security policy by verifying it using our program logic, with respect to a 
+precondition $P$ saying ``$x$ contains high data, $y$ contains low data, and $y = x \% 2$''.
+Our weakened noninterference property described above says that if we have an execution from 
+some initial state satisfying this $P$,
+then changing the value of $x$ will not affect the program's output as long as the new state also 
+satisfies $P$. Since $y$'s value is $v\%2$ and is unchanged in the two executions, this means that 
+as long as we change $x$'s value to something \emph{with the same parity}, the output will be
+unchanged. Indeed, this is exactly the desired property for enforcing Alice's security policy.
+In this way, the precondition $P$ used for verifying $C$ serves as a formal description of
+the security policy.
+
+\paragraph{Public Average}
+Suppose we have $n$ salaries stored in variables $x_1$ through $x_n$, and we are only willing to 
+release their average as public. This 
+is similar to the previous example, except that we now have multiple secrets. The precondition 
+$P$ says that $x_1$ through $x_n$ all contain \hi{} data, $a$ contains \lo{} data, and 
+$a = (\Sigma~x_i)/n$. 
+In this situation, noninterference of a verified program $C$ says that we can change any of 
+the values contained within the \emph{set} 
+of variables $\{x_1,...,x_n\}$ in any way, and $C$'s output will be unaffected as long as the 
+average of all the values is unchanged.
+
+\paragraph{Shared Calendar}
+Suppose Alice has a calendar represented as an array of $n$ time slots at heap locations $l$ 
+through $l+n-1$. Each time slot may either contain a value of $0$ if Alice has not scheduled an
+event at that time, or some nonzero value encoding the details of an event. The 
+precondition $P$ says that, for each time slot $t$ in the calendar, either the value at $t$
+is $0$ and the label is \lo{}, or the value is not $0$ and the label is \hi{}. This is an 
+example of what we call a \emph{conditional label}: a label that is dependent on values
+within the program state (notice that the previous examples did not use conditional labels).
+Interpreting this precondition as our security policy, noninterference of a program $C$ says 
+that changing any \emph{nonzero} (i.e., high security) values within the calendar will not 
+have any effect on the output produced by $C$ as long as $P$ still holds; in order for $P$ to 
+still hold, we must be changing these values into other \emph{nonzero} values. Hence we
+get exactly the desired policy: the observable behavior is independent from the details
+of any scheduled events (i.e., we cannot distinguish one nonzero value from another, but
+we \emph{can} determine which time slots contain $0$ and which do not). 
+Conditional labels are a novelty of our program logic; they allow for highly expressive
+security policies, and we will show below
+how they can be a useful and powerful tool in conducting the security verification.
+
+\paragraph{Dynamic Label Tainting}
+We can trivially represent standard dynamic label tainting, since our program logic
+is based upon directly modeling labels and their propagation throughout an execution.
+It is important to note, however, that this modeling of labels is purely logical.
+The labels are there to help specify the security policy and to help conduct the security
+verification; when the actual program executes, no labels exist within the machine
+state, and no computations occur for propagating labels. We enforce this formally
+by defining two different machine operational semantics. The low-level, ``true'' semantics 
+is completely unaware of security labels, while the higher level instrumented semantics
+deals with labels and propagation. We prove standard theorems to relate the two semantics
+together, so that our final end-to-end security guarantee applies to the true semantics
+of execution.
+
+\section{Language and Semantics}
+\label{semantics}
+
+We can now get into the formal definitions of our program logic.
+The entire program logic, along with its theorems, have been encoded
+in the Coq proof assistant language and can be found at the
+companion website~\cite{costanzo-thesis}.
+Our simple, C-like toy programming language is defined as follows: 
+\begin{mathpar}
+
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+
+\production{\text{(Exp)} & E}
+    \prodcase{x}
+    \prodcase{c}
+    \prodcase{E + E}
+    \prodcase{\cdots}
+    
+\production{\text{(BExp)} & B}
+    \prodcase{\ttt{false}}
+    \prodcase{E=E}
+    \prodcase{B \land B}
+    \prodcase{\cdots}
+
+\production{\text{(Cmd)} & C}
+    \prodcase{\skp}
+    \prodcase{\out{E}}
+    \prodcase{x:=E}
+    \prodcase{x:=[E]}
+    \prodcase{[E]:=E}
+    \prodcase{\seq{C}{C}}
+    \prodcase{\condfull{B}{C}{C}}
+    \prodcase{\while{B}{C}}
+    
+\end{bnf}
+
+\end{mathpar}
+Valid code includes variable assignment, heap load/store, if statements, while loops, and output.
+Our model of a program state, consisting of a variable store and a heap, is given by:
+\begin{mathpar}
+
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+    
+\production{(\text{Lbl}) & L}
+    \prodcase{\lo{}}
+    \prodcase{\hi{}}    
+    
+\production{(\text{Val}) & V}
+    \prodcase{\mathbb{Z} \times \text{Lbl}}
+
+\production{(\text{Store}) & s}
+    \prodcase{\text{Var} \rightarrow \text{option } \text{Val}}
+    
+\production{(\text{Heap}) & h}
+    \prodcase{\mathbb{N} \rightarrow \text{option } \text{Val}}
+
+\production{(\text{State}) & \sigma}
+    \prodcase{\text{Store} \times \text{Heap}}
+    
+\end{bnf}
+
+\end{mathpar}
+\begin{comment}
+The denotational semantics of expressions is defined as:
+\begin{align*}
+\den{E} \,\, & : \,\, \text{Store} \rightarrow \text{option Val} \\
+\den{x}s & = s(x) \\
+\den{c}s & = \some{(c,\lo)} \\
+\den{E_1 \ttt{ op } E_2}s & = \left\{
+\begin{aligned}
+& \some{(v_1 \den{\ttt{op}} v_2, l_1 \sqcup l_2)}, \quad \text{if } \\
+& \qquad \left(\begin{aligned}
+& \den{E_1}s = \some{(v_1,l_1)} \\
+& \text{ and } \, \den{E_2}s = \some{(v_2,l_2)} \\
+\end{aligned}\right. \\
+& \none, \qquad \text{otherwise}
+\end{aligned}\right.
+\end{align*}
+\end{comment}
+Given a variable store $s$, we define a denotational semantics $\den{E}s$ that evaluates an expression to a pair of 
+integer and label, with the label being the least upper bound of the labels of the constituent parts. The denotation 
+of an expression also may evaluate to \none{}, indicating that the program state does not contain the necessary 
+resources to evaluate. We have a similar denotational semantics for boolean expressions. The formal definitions of 
+these semantics are omitted here as they are standard and straightforward. Note that we will sometimes write
+ $\den{E}\sigma$ as shorthand for $\den{E}$ applied to the store of state $\sigma$.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[!p]
+
+\small{
+\begin{mathpar}
+\inferrule*[right=(ASSGN)]
+{\den{E}s = \some{(n,l)}}
+{\pconfig{(s,h)}{x:=E}{K} \pstep{l'}{} \pconfig{(s[x \mapsto (n, l \sqcup l')],h)}{\skp}{K}}
+
+\inferrule*[right=(READ)]
+{\den{E}s = \some{(n_1,l_1)} \\
+h(n_1) = \some{(n_2,l_2)}}
+{\pconfig{(s,h)}{x:=[E]}{K} \pstep{l'}{} \pconfig{(s[x \mapsto (n_2, l_1 \sqcup l_2 \sqcup l')],h)}{\skp}{K}}
+
+\inferrule*[right=(WRITE)]
+{\den{E}s = \some{(n_1,l_1)} \\
+h(n_1) \neq \none{} \\
+\den{E'}s = \some{(n_2,l_2)}}
+{\pconfig{(s,h)}{[E]:=E'}{K} \pstep{l'}{} \pconfig{(s,h[n_1 \mapsto (n_2, l_1 \sqcup l_2 \sqcup l')])}{\skp}{K}}
+
+\inferrule*[right=(OUTPUT)]
+{\den{E}\sigma = \some{(n,\lo)}}
+{\pconfig{\sigma}{\out{E}}{K} \pstep{\lo}{[n]} \pconfig{\sigma}{\skp}{K}}
+
+\inferrule*[right=(IF-TRUE)]
+{\den{B}\sigma = \some{(\true,l)} \\
+l \sqsubseteq l'}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \pstep{l'}{} \pconfig{\sigma}{C_1}{K}}
+
+\inferrule*[right=(IF-FALSE)]
+{\den{B}\sigma = \some{(\false,l)} \\
+l \sqsubseteq l'}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \pstep{l'}{} \pconfig{\sigma}{C_2}{K}}
+
+\inferrule*[right=(IF-HI)]
+{\den{B}\sigma = \some{(\_,\hi)} \\
+\pconfig{\ttt{mark\_vars}(\sigma,\condfull{B}{C_1}{C_2})}{\condfull{B}{C_1}{C_2}}{[]} \pstepn{\hi}{n}{} \pconfig{\sigma'}{\skp}{[]}}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \pstep{\lo}{} \pconfig{\sigma'}{\skp}{K}}
+
+%\inferrule*[right=(IF-HI-DVG)]
+%{\den{B}s = (\_,\hi) \\
+%\forall \sigma' \such \pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{[]} \psteps{\hi}{}\!\!\!\!\!\!\!\!\!\!\not \quad\;\;  \pconfig{\sigma'}{\skp}{[]}}
+%{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \pstep{\lo}{} \pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K}}
+
+\inferrule*[right=(WHILE-TRUE)]
+{\den{B}\sigma = \some{(\true,l)} \\
+l \sqsubseteq l'}
+{\pconfig{\sigma}{\while{B}{C}}{K} \pstep{l'}{} \pconfig{\sigma}{C; \while{B}{C}}{K}}
+
+\inferrule*[right=(WHILE-FALSE)]
+{\den{B}\sigma = \some{(\false,l)} \\
+l \sqsubseteq l'}
+{\pconfig{\sigma}{\while{B}{C}}{K} \pstep{l'}{} \pconfig{\sigma}{\skp}{K}}
+
+\inferrule*[right=(WHILE-HI)]
+{\den{B}\sigma = \some{(\_,\hi)} \\
+\pconfig{\ttt{mark\_vars}(\sigma,\while{B}{C})}{\while{B}{C}}{[]} \pstepn{\hi}{n}{} \pconfig{\sigma'}{\skp}{[]}}
+{\pconfig{\sigma}{\while{B}{C}}{K} \pstep{\lo}{} \pconfig{\sigma'}{\skp}{K}}
+
+%\inferrule*[right=(WHILE-HI-DVG)]
+%{\den{B}s = (\_,\hi) \\
+%\forall \sigma' \such \pconfig{\sigma}{\while{B}{C}}{[]} \psteps{\hi}{}\!\!\!\!\!\!\!\!\!\!\not \quad\;\;  \pconfig{\sigma'}{\skp}{[]}}
+%{\pconfig{\sigma}{\while{B}{C}}{K} \pstep{\lo}{} \pconfig{\sigma}{\while{B}{C}}{K}}
+
+\inferrule*[right=(SEQ)]
+{ }
+{\pconfig{\sigma}{\seq{C_1}{C_2}}{K} \pstep{l}{} \pconfig{\sigma}{C_1}{C_2 :: K}}
+
+\inferrule*[right=(SKIP)]
+{ }
+{\pconfig{\sigma}{\skp}{C::K} \pstep{l}{} \pconfig{\sigma}{C}{K}}
+
+\inferrule*[right=(ZERO)]
+{ }
+{\pconfig{\sigma}{C}{K} \pstepn{l}{0}{} \pconfig{\sigma}{C}{K}}
+
+\inferrule*[right=(SUCC)]
+{\pconfig{\sigma}{C}{K} \pstep{l}{o} \pconfig{\sigma'}{C'}{K'} \\
+\pconfig{\sigma'}{C'}{K'} \pstepn{l}{n}{o'} \pconfig{\sigma''}{C''}{K''} \\
+n > 0}
+{\pconfig{\sigma}{C}{K} \pstepn{l}{n+1}{o ++ o'} \pconfig{\sigma''}{C''}{K''}}
+\end{mathpar}
+}
+\vspace{-30pt}
+\caption{Security-Aware Operational Semantics}
+\label{sem}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Figure~\ref{sem} defines our instrumented operational semantics. The semantics is 
+security-aware, meaning that it keeps track of security
+labels on data and propagates these labels throughout execution in order to track which 
+values might have been influenced by
+some high-security data. The semantics operates on machine configurations, which consist 
+of program state, code, and a list of 
+commands called the continuation stack (we use a continuation-stack approach solely for 
+the purpose of simplifying some 
+proofs). The transition arrow of the semantics is annotated with a \emph{program counter label}, 
+which is a standard IFC 
+construct used to keep track of information flow resulting from the control flow of the 
+execution. Whenever an execution 
+enters a conditional construct, it raises the pc label by the label of the boolean 
+expression evaluated; the pc label then taints any assignments made 
+within the conditional construct (see variable $l'$ in the (ASSGN), (READ), and (WRITE) 
+rules). The transition arrow is also annotated with a
+list of outputs (equal to the empty list when not explicitly written) and the number of 
+steps (equal to 1 when not explicitly written).
+We sometimes annotate the arrow with an asterisk ($\psteps{}{}$) to indicate zero
+or more steps.
+
+Two of the rules for conditional constructs make use of a function 
+called \ttt{mark\_vars}. $\ttt{mark\_vars}(\sigma, C)$ alters $\sigma$ by setting the label 
+of each variable in $\ttt{modifies}(C)$ to \hi{}, where $\ttt{modifies}(C)$ is a 
+syntactic function returning an overapproximation of the store variables that may be modified 
+by $C$.
+\begin{comment}
+\begin{align*}
+\ttt{modifies}(\skp) & = \emptyset \\
+\ttt{modifies}(\out{E}) & = \emptyset \\
+\ttt{modifies}(x:=E) & = \{x\} \\
+\ttt{modifies}(x:=[E]) & = \{x\} \\
+\ttt{modifies}([E]:=E') & = \emptyset \\
+\ttt{modifies}(\seq{C_1}{C_2}) & = \ttt{modifies}(C_1) \cup \ttt{modifies}(C_2) \\
+\ttt{modifies}(\condfull{B}{C_1}{C_2}) & = \ttt{modifies}(C_1) \cup \ttt{modifies}(C_2) \\
+\ttt{modifies}(\while{B}{C}) & = \ttt{modifies}(C)
+\end{align*}
+\end{comment}
+Thus, whenever we raise the pc label to \hi{}, our semantics taints all store variables 
+that appear on the left-hand side of an assignment or heap-read command within the 
+conditional construct, even if some of those commands do not actually get executed. Note 
+that regardless of which branch of an if statement is taken, the semantics taints all the 
+variables in \emph{both} branches. This is required for noninterference, due to the 
+well-known fact that the \emph{lack} of assignment in a branch of an if statement can 
+leak information about the branching expression. Consider, for example, the following program:
+\begin{alltt}
+1    y := 1;
+2    if (x = 0) then y := 0 else skip;
+3    if (y = 0) then skip else output 1;
+\end{alltt} 
+Suppose $x$ contains \hi{} data initially, while $y$ contains \lo{} data.
+If $x$ is 0, then $y$ will be assigned 0 at line 2 and tainted with a \hi{} label (by the pc label).
+Then nothing happens at line 3, and the program produces no output. If $x$ is nonzero, however, nothing
+happens at line 2, so $y$ still has a \lo{} label at line 3. Thus the output command at line 3 executes
+without issue. Therefore the output of this program depends on the \hi{} data in $x$, even though our
+instrumented semantics executes safely. We choose to resolve this issue by using the \ttt{mark\_vars}
+function in the semantics. Then $y$ will be tainted at line 2 regardless of the value of $x$, and so the
+semantics will get stuck at line 3 when $x$ is nonzero. In other words, we would only be able to verify this
+program with a precondition saying that $x = 0$~--- the program is indeed noninterfering
+with respect to this degenerate security policy.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[!p]
+
+\begin{mathpar}
+\inferrule*[right=(ASSGN)]
+{\den{E}s = \some{n}}
+{\confi{(s,h)}{x:=E} \pstep{}{} \confi{(s[x \mapsto n],h)}{\skp}}
+
+\inferrule*[right=(READ)]
+{\den{E}s = \some{n_1} \\
+h(n_1) = \some{n_2}}
+{\confi{(s,h)}{x:=[E]} \pstep{}{} \confi{(s[x \mapsto n_2],h)}{\skp}}
+
+\inferrule*[right=(WRITE)]
+{\den{E}s = \some{n_1} \\
+h(n_1) \neq \none{} \\
+\den{E'}s = \some{n_2}}
+{\confi{(s,h)}{[E]:=E'} \pstep{}{} \confi{(s,h[n_1 \mapsto n_2])}{\skp}}
+
+\inferrule*[right=(OUTPUT)]
+{\den{E}\tau = \some{n}}
+{\confi{\tau}{\out{E}} \pstep{}{[n]} \confi{\tau}{\skp}}
+
+\inferrule*[right=(IF-TRUE)]
+{\den{B}\tau = \some{\ttt{true}}}
+{\confi{\tau}{\condfull{B}{C_1}{C_2}} \pstep{}{} \confi{\tau}{C_1}}
+
+\inferrule*[right=(IF-FALSE)]
+{\den{B}\tau = \some{\ttt{false}}}
+{\confi{\tau}{\condfull{B}{C_1}{C_2}} \pstep{}{} \confi{\tau}{C_2}}
+
+\inferrule*[right=(WHILE-TRUE)]
+{\den{B}\tau = \some{\ttt{true}}}
+{\confi{\tau}{\while{B}{C}} \pstep{}{} \confi{\tau}{\seq{C}{\while{B}{C}}}}
+
+\inferrule*[right=(WHILE-FALSE)]
+{\den{B}\tau = \some{\ttt{false}}}
+{\confi{\tau}{\while{B}{C}} \pstep{}{} \confi{\tau}{\skp}}
+
+\inferrule*[right=(SEQ)]
+{\confi{\tau}{C_1} \pstep{}{o} \confi{\tau'}{C_1'}}
+{\confi{\tau}{\seq{C_1}{C_2}} \pstep{}{o} \confi{\tau'}{\seq{C_1'}{C_2}}}
+
+\inferrule*[right=(SKIP)]
+{ }
+{\confi{\tau}{\seq{\skp}{C}} \pstep{}{} \confi{\tau}{C}}
+
+\inferrule*[right=(ZERO)]
+{ }
+{\confi{\tau}{C} \pstepn{}{0}{} \confi{\tau}{C}}
+
+\inferrule*[right=(SUCC)]
+{\confi{\tau}{C} \pstep{}{o} \confi{\tau'}{C'} \\
+\confi{\tau'}{C'} \pstepn{}{n}{o'} \confi{\tau''}{C''} \\
+n > 0}
+{\confi{\tau}{C} \pstepn{}{n+1}{o ++ o'} \confi{\tau''}{C''}}
+\end{mathpar}
+
+\caption{Standard Operational Semantics}
+\label{basesem}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The operational semantics presented here is mixed-step and manipulates security labels directly. 
+As mentioned above, we need to relate it to a more standard semantics that does not make
+use of security labels. A standard, single-step semantics is defined in Figure~\ref{basesem}. 
+This semantics operates on states without labels,
+and it does not use continuation stacks. Given a state $\sigma$ with labels, we write $\bar{\sigma}$ to represent 
+the same state with all labels erased from both the store and heap. We will also use $\tau$ to range over states 
+without labels. Then the following two theorems hold:
+
+\begin{thm}
+Suppose $\pconfig{\sigma}{C}{[]} \psteps{\lo}{o} \pconfig{\sigma'}{\skp}{[]}$ in the instrumented
+semantics. Then there exists $\tau$ such that $\confi{\bar{\sigma}}{C} \psteps{}{o} \confi{\tau}{\skp}$ 
+in the standard semantics.
+\end{thm}
+
+\begin{thm}
+Suppose $\confi{\bar{\sigma}}{C} \psteps{}{o} \confi{\tau}{\skp}$ in the standard semantics, and suppose
+$\pconfig{\sigma}{C}{[]}$ never gets stuck when executed in the instrumented semantics. Then 
+there exists $\sigma'$ such that $\bar{\sigma}' = \tau$ and
+$\pconfig{\sigma}{C}{[]} \psteps{\lo}{o} \pconfig{\sigma'}{\skp}{[]}$ in the instrumented semantics.
+\end{thm}
+
+These theorems together guarantee that the two semantics produce identical observable behaviors (outputs)
+on terminating executions, as long as the instrumented semantics does not get stuck. Our program logic will
+of course guarantee that the instrumented semantics does not get stuck in any execution satisfying the precondition.
+
+\begin{comment}
+\begin{figure}
+\begin{alltt}
+// Assumption: Alice's calendar is a 64-element 
+// array beginning at location A
+
+1  i := 0;
+2  while (i < 64) do
+3      x := isFree(i);
+4      if (x = true)
+5          then 
+6              output i
+7          else 
+8              skip;
+9      i := i+1
+
+10 isFree(i):
+11     x := [A+i];
+12     if (x = 0)
+13         then
+14             y := true;
+15         else
+16             y := false;
+17     return y
+\end{alltt}
+\caption{Example: Alice's Private Calendar}
+\label{calexample}
+\end{figure}
+\end{comment}
+
+
+
+
+\begin{comment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}
+\begin{mathpar}
+\inferrule*[right=(OUTPUT-L)]
+{\den{E}s = (n,\lo)}
+{\pconfig{(s,\sigma,r)}{\out{E}}{K} \lstep{[n]} \pconfig{(s,\sigma,r)}{\skp}{K}}
+
+\inferrule*[right=(PRIM-L)]
+{(\bar{\sigma},s) \in \den{c}}
+{\pconfig{\sigma}{\prim{c}}{K} \lstep{} \pconfig{\addlopols{\sigma}{\ttt{WS}(c)}{\ttt{RS}(c)}{s}}{\skp}{K}}
+
+\inferrule*[right=(IF-LO-TRUE-L)]
+{\den{B}\sigma = \ttt{Some }(\ttt{true},\lo)}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \lstep{} \pconfig{\sigma}{C_1}{K}}
+
+\inferrule*[right=(IF-LO-FALSE-L)]
+{\den{B}\sigma = \ttt{Some }(\ttt{false},\lo)}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \lstep{} \pconfig{\sigma}{C_2}{K}}
+
+\inferrule*[right=(IF-HI-HALT-L)]
+{\den{B}\sigma = \ttt{Some }(\_,\hi) \\
+\hsafe{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{[]}} \\
+\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{[]} \hsteps \pconfig{\sigma'}{\skp}{[]}}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \lstep{} \pconfig{\sigma'}{\skp}{K}}
+
+\inferrule*[right=(IF-HI-DVG-L)]
+{\den{B}\sigma = \ttt{Some }(\_,\hi) \\
+\hsafe{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{[]}} \\
+\forall \sigma' \such \pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{[]} \hsteps\!\!\!\!\!\!\!\!\!\!\not \quad\;\; \pconfig{\sigma'}{\skp}{[]}}
+{\pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K} \lstep{} \pconfig{\sigma}{\condfull{B}{C_1}{C_2}}{K}}
+
+\inferrule*[right=(WHILE-LO-TRUE-L)]
+{\den{B}\sigma = \ttt{Some }(\ttt{true},\lo)}
+{\pconfig{\sigma}{\while{B}{C}}{K} \lstep{} \pconfig{\sigma}{C}{(\while{B}{C}) :: K}}
+
+\inferrule*[right=(WHILE-LO-FALSE-L)]
+{\den{B}\sigma = \ttt{Some }(\ttt{false},\lo)}
+{\pconfig{\sigma}{\while{B}{C}}{K} \lstep{} \pconfig{\sigma}{\skp}{K}}
+
+\inferrule*[right=(WHILE-HI-HALT-L)]
+{\den{B}\sigma = \ttt{Some }(\_,\hi) \\
+\hsafe{\pconfig{\sigma}{\while{B}{C}}{[]}} \\
+\pconfig{\sigma}{\while{B}{C}}{[]} \hsteps \pconfig{\sigma'}{\skp}{[]}}
+{\pconfig{\sigma}{\while{B}{C}}{K} \lstep{} \pconfig{\sigma'}{\skp}{K}}
+
+\inferrule*[right=(WHILE-HI-DVG-L)]
+{\den{B}\sigma = \ttt{Some }(\_,\hi) \\
+\hsafe{\pconfig{\sigma}{\while{B}{C}}{[]}} \\
+\forall \sigma' \such \pconfig{\sigma}{\while{B}{C}}{[]} \hsteps\!\!\!\!\!\!\!\!\!\!\not \quad\;\; \pconfig{\sigma'}{\skp}{[]}}
+{\pconfig{\sigma}{\while{B}{C}}{K} \lstep{} \pconfig{\sigma}{\while{B}{C}}{K}}
+
+\inferrule*[right=(SEQ-L)]
+{ }
+{\pconfig{\sigma}{\seq{C_1}{C_2}}{K} \lstep{o} \pconfig{\sigma}{C_1}{C_2 :: K}}
+
+\inferrule*[right=(SKIP-L)]
+{ }
+{\pconfig{\sigma}{\skp}{C::K} \lstep{} \pconfig{\sigma}{C}{K}}
+\end{mathpar}
+
+\caption{Low Operational Semantics}
+\label{lsem}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The following theorem shows that both our high and low instrumented semantics are valid refinements of our base
+machine. If the high or low machine can transform one configuration to another in zero or more steps, then so can 
+the base machine; additionally, the base machine will output the same thing as the high/low machines. The proof of this theorem 
+is completely straightforward; details can be found in the extended technical report~\cite{ddifctr}. Note that the case 
+for primitive commands rests on the fact that erasing all policies from $\addpols{\_}{\_}{\_}{s}$ gives back the 
+original base state $s$.
+
+\vspace{4mm}
+\begin{thm}[Valid instrumented semantics]
+\label{bsemvalid}
+\begin{align*}
+& \dt \, \forall \sigma,C,K,\sigma',C',K' \such \\
+& \qquad \pconfig{\sigma}{C}{K} \hsteps \pconfig{\sigma'}{C'}{K'} \Longrightarrow \pconfig{\bar{\sigma}}{C}{K} \psteps{}{[]} \pconfig{\bar{\sigma}'}{C'}{K'} \\
+& \dt \, \forall \sigma,C,K,\sigma',C',K',o \such \\
+& \qquad \pconfig{\sigma}{C}{K} \lsteps{o} \pconfig{\sigma'}{C'}{K'} \Longrightarrow \pconfig{\bar{\sigma}}{C}{K} \psteps{}{o} \pconfig{\bar{\sigma}'}{C'}{K'} 
+\end{align*}
+\end{thm}
+\end{comment}
+

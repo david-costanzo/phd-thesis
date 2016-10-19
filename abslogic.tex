@@ -1,0 +1,380 @@
+\section{The Abstract Logic}
+\label{abslogic}
+
+The previous section demonstrated how we can impose behavior preservation in
+the context of Separation Logic, without making Separation Logic any more
+difficult to use or any less powerful. We next need to show how behavior
+preservation can provide benefits over the standard, weaker notion of locality.
+In order to do this, it will help to have a formal, abstract view of
+behavior-preserving Separation Logic. This section will describe how 
+our strong locality fits into a context similar to that of 
+Abstract Separation Logic~\cite{coy07}. With a minor amount of work, the 
+logic of Section~\ref{concrete} can be molded into a particular instance 
+of the abstract logic presented here.
+
+We define a \emph{separation algebra} to be a set of states $\Sigma$, along with a partial associative
+and commutative operator $\dt : \Sigma \to \Sigma \rightharpoonup \Sigma$. The disjointness relation $\sigma_0 \# \sigma_1$ holds iff 
+$\sigma_0 \dt \sigma_1$ is defined, and the substate relation $\sigma_0 \preceq \sigma_1$ holds iff there is some
+$\sigma_0'$ such that $\sigma_0 \dt \sigma_0' = \sigma_1$. A particular element of $\Sigma$ is 
+designated as a unit state, denoted $u$, with the property that for any $\sigma$, $\sigma \# u$ and $\sigma \dt u = \sigma$. We require
+the $\dt$ operator to be cancellative, meaning that $\sigma \dt \sigma_0 = \sigma \dt \sigma_1 \Rightarrow \sigma_0 = \sigma_1$.
+
+An \emph{action} is a set of pairs of type $\Sigma \cup \{\fault,\dvg\} \times \Sigma \cup \{\fault,\dvg\}$.
+We require the following
+two properties: (1) actions always relate $\fault$ to $\fault$ and $\dvg$ to $\dvg$, and never relate $\fault$ or $\dvg$ to 
+anything else; and (2) actions are total, in the sense that for any $\tau$, there exists some $\tau'$ such that $\relatebr{A}{\tau}{\tau'}$
+(recall from Section~\ref{locality} that we use $\tau$ to range over elements of $\Sigma \cup \{\fault,\dvg\}$). 
+Note that these two requirements are preserved over the standard composition of relations, as well as over both finitary and infinite unions.
+We write $\id$ to represent the identity action $\{(\tau,\tau) \pipe \tau \in \Sigma \cup \{\fault,\dvg\}\}$.
+
+Note that it is more standard in the literature to have the domain of actions
+range only over $\Sigma$~--- we use $\Sigma \cup \{\fault,\dvg\}$ here because it has the pleasant effect of making $\den{C_1;C_2}$
+correspond precisely to standard composition. Intuitively, once an execution goes wrong, it continues to go wrong, and once an execution
+diverges, it continues to diverge.
+
+A \emph{local action} is an action $A$ that satisfies the following four properties, which respectively correspond to Safety Monotonicity,
+Termination Equivalence, the Forwards Frame Property, and the Backwards Frame Property from Section~\ref{locality}:
+\begin{align*}
+& \text{1.) } \lnot \relatebr{A}{\sigma_0}{\fault} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  \lnot \relatebr{A}{(\sigma_0 \dt \sigma_1)}{\fault} \\
+& \text{2.) } \lnot \relatebr{A}{\sigma_0}{\fault} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  (\relatebr{A}{\sigma_0}{\dvg} \iff \relatebr{A}{(\sigma_0 \dt \sigma_1)}{\dvg}) \\
+& \text{3.) } \relatebr{A}{\sigma_0}{\sigma_0'} \land \sigma_0 \# \sigma_1 \Longrightarrow 
+  \sigma_0' \# \sigma_1 \land \relatebr{A}{(\sigma_0 \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)} \\
+& \text{4.) } \lnot \relatebr{A}{\sigma_0}{\fault} \land \relatebr{A}{(\sigma_0 \dt \sigma_1)}{\sigma'} \Longrightarrow
+\exists \sigma_0' \such \sigma' = \sigma_0' \dt \sigma_1 \land \relatebr{A}{\sigma_0}{\sigma_0'}
+\end{align*}
+
+We denote the set of all local actions by \locact.
+We now show that the set of local actions is closed under composition and (possibly infinite) union. We use the notation
+$A_1;A_2$ to denote composition, and $\bigcup \A$ to denote union (where $\A$ is a possibly infinite set of actions). The formal
+definitions of these operations follow. Note that we require that $\A$ be non-empty. This is necessary because $\bigcup \emp$
+is $\emp$, which is not a valid action. Unless otherwise stated, whenever we write $\bigcup \A$, there will always be an implicit
+assumption that $\A \neq \emp$.
+\begin{align*} 
+\relatebr{A_1;A_2}{\tau}{\tau'} & \iff \exists \tau'' \such \relatebr{A_1}{\tau}{\tau''} \land \relatebr{A_2}{\tau''}{\tau'} \\
+\relatebr{\bigcup \A}{\tau}{\tau'} & \iff \exists A \in \A \such \relatebr{A}{\tau}{\tau'} \quad \quad (\A \neq \emp)
+\end{align*}
+
+\begin{lem}
+If $A_1$ and $A_2$ are local actions, then $A_1;A_2$ is a local action.
+\end{lem}
+\ifextended
+\begin{proof}
+It will be useful to first note that
+$\relatebr{A_1;A_2}{\sigma}{\fault}$ iff either
+$\relatebr{A_1}{\sigma}{\fault}$ or there exists some $\sigma'$ such
+that $\relatebr{A_1}{\sigma}{\sigma'}$ and
+$\relatebr{A_2}{\sigma'}{\fault}$. This is due to the fact that we know
+$\relatebr{A_2}{\fault}{\fault}$ and $\lnot
+\relatebr{A_2}{\dvg}{\fault}$. Similarly, it is also the case that
+$\relatebr{A_1;A_2}{\sigma}{\dvg}$ iff either
+$\relatebr{A_1}{\sigma}{\dvg}$ or there exists some $\sigma'$ such that
+$\relatebr{A_1}{\sigma}{\sigma'}$ and $\relatebr{A_2}{\sigma'}{\dvg}$.
+
+For Safety Monotonicity, suppose that $\sigma_0 \# \sigma_1$ 
+and $\lnot \relatebr{A_1;A_2}{\sigma_0}{\fault}$. 
+Suppose by way of
+contradiction that $\relatebr{A_1;A_2}{(\sigma_0 \dt \sigma_1)}{\fault}$. Since $\lnot
+\relatebr{A_1;A_2}{\sigma_0}{\fault}$ and
+$\relatebr{A_2}{\fault}{\fault}$, we have $\lnot
+\relatebr{A_1}{\sigma_0}{\fault}$. Thus by Safety Monotonicity of $A_1$,
+$\lnot \relatebr{A_1}{(\sigma_0 \dt \sigma_1)}{\fault}$. By our note
+above, we see that there must be some $\sigma$ such that
+$\relatebr{A_1}{(\sigma_0 \dt \sigma_1)}{\sigma}$ and
+$\relatebr{A_2}{\sigma}{\fault}$. By the Backwards Frame Property of
+$A_1$, there must be a $\sigma_0'$ such that $\sigma = \sigma_0' \dt
+\sigma_1$ and $\relatebr{A_1}{\sigma_0}{\sigma_0'}$.  Thus we have that
+$\relatebr{A_2}{(\sigma_0' \dt \sigma_1)}{\fault}$, and so Safety
+Monotonicity of $A_2$ tells us that
+$\relatebr{A_2}{\sigma_0'}{\fault}$. Hence
+$\relatebr{A_1;A_2}{\sigma_0}{\fault}$, which is a contradiction.
+
+For Termination Equivalence, suppose that $\sigma_0 \# \sigma_1$ 
+and $\lnot \relatebr{A_1;A_2}{\sigma_0}{\fault}$. Then
+we also have $\lnot \relatebr{A_1}{\sigma_0}{\fault}$, 
+since we have $\relatebr{A_2}{\fault}{\fault}$. 
+
+For the forward direction, suppose that $\relatebr{A_1;A_2}{\sigma_0}{\dvg}$. 
+By the note above, there are two possible situations. In the first situation, we have $\relatebr{A_1}{\sigma_0}{\dvg}$. By
+Termination Equivalence of $A_1$, this implies that $\relatebr{A_1}{(\sigma_0 \dt \sigma_1)}{\dvg}$, and so
+$\relatebr{A_1;A_2}{(\sigma_0 \dt \sigma_1)}{\dvg}$, as desired. In the second situation, there is a state $\sigma$
+such that $\relatebr{A_1}{\sigma_0}{\sigma}$ and $\relatebr{A_2}{\sigma}{\dvg}$. By the Forwards Frame Property of
+$A_1$, we see that $\sigma \# \sigma_1$ and $\relatebr{A_1}{(\sigma_0 \dt \sigma_1)}{(\sigma \dt \sigma_1)}$. Now note
+that we must have $\lnot \relatebr{A_2}{\sigma}{\fault}$, because otherwise we would be able to derive 
+$\relatebr{A_1;A_2}{\sigma_0}{\fault}$, which is a contradiction. Therefore, by Termination Equivalence of $A_2$,
+we have $\relatebr{A_2}{(\sigma \dt \sigma_1)}{\dvg}$. Hence we get $\relatebr{A_1;A_2}{(\sigma_0 \dt \sigma_1)}{\dvg}$,
+as desired.
+
+For the backward direction, suppose that $\relatebr{A_1;A_2}{(\sigma_0 \dt \sigma_1)}{\dvg}$.  
+Again by the note above, there are two
+possible situations. In the first situation, we have
+$\relatebr{A_1}{(\sigma_0 \dt \sigma_1)}{\dvg}$. By Termination
+Equivalence of $A_1$, this implies that
+$\relatebr{A_1}{\sigma_0}{\dvg}$, and so
+$\relatebr{A_1;A_2}{\sigma_0}{\dvg}$, as desired. In the second
+situation, there is a state $\sigma$ such that $\relatebr{A_1}{(\sigma_0 \dt \sigma_1)}{\sigma}$ 
+and $\relatebr{A_2}{\sigma}{\dvg}$. By the
+Backwards Frame Property of $A_1$, there must be a $\sigma_0'$ such
+that $\sigma = \sigma_0' \dt \sigma_1$ and
+$\relatebr{A_1}{\sigma_0}{\sigma_0'}$. Now note that we must have $\lnot
+\relatebr{A_2}{\sigma_0'}{\fault}$, because otherwise we would be able
+to derive $\relatebr{A_1;A_2}{\sigma_0}{\fault}$, which is a
+contradiction. Therefore, by Termination Equivalence of $A_2$, we have
+$\relatebr{A_2}{\sigma_0'}{\dvg}$. Hence we get
+$\relatebr{A_1;A_2}{\sigma_0}{\dvg}$, as desired.
+
+For the Forwards Frame Property, suppose that $\sigma_0 \# \sigma_1$
+and $\relatebr{A_1;A_2}{\sigma_0}{\sigma_0'}$.  Then there exists a
+$\tau$ such that $\relatebr{A_1}{\sigma_0}{\tau}$ and
+$\relatebr{A_2}{\tau}{\sigma_0'}$.  Furthermore, $\tau$ cannot be
+$\fault$ or $\dvg$ since $\relatebr{A_2}{\tau}{\sigma_0'}$~--- thus let
+$\tau$ be $\sigma_0''$. By the Forwards Frame Property of $A_1$, we
+have $\sigma_0'' \# \sigma_1$ and $\relatebr{A_1}{(\sigma_0 \dt
+  \sigma_1)}{(\sigma_0'' \dt \sigma_1)}$. Therefore, by the Forwards
+Frame Property of $A_2$, we have $\sigma_0' \# \sigma_1$ and
+$\relatebr{A_2}{(\sigma_0'' \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)}$.
+Hence $\sigma_0' \# \sigma_1$ and $\relatebr{A_1;A_2}{(\sigma_0 \dt
+  \sigma_1)}{(\sigma_0' \dt \sigma_1)}$, as desired.
+
+For the Backwards Frame Property, suppose that $\lnot
+\relatebr{A_1;A_2}{\sigma_0}{\fault}$ and $\relatebr{A_1;A_2}{(\sigma_0
+  \dt \sigma_1)}{\sigma'}$. Then, repeating some reasoning from
+earlier in this proof, we have $\lnot \relatebr{A_1}{\sigma_0}{\fault}$,
+and there exists a $\sigma$ such that $\relatebr{A_1}{(\sigma_0 \dt
+  \sigma_1)}{\sigma}$ and $\relatebr{A_2}{\sigma}{\sigma'}$. By the
+Backwards Frame Property of $A_1$, we get $\sigma = \sigma_0' \dt
+\sigma_1$ and $\relatebr{A_1}{\sigma_0}{\sigma_0'}$. Now note that
+$\lnot \relatebr{A_2}{\sigma_0'}{\fault}$, because otherwise we would be
+able to derive $\relatebr{A_1;A_2}{\sigma_0}{\fault}$, which is a
+contradiction. Therefore, by the Backwards Frame Property of $A_2$, we
+get $\sigma' = \sigma_0'' \dt \sigma_1$ and
+$\relatebr{A_2}{\sigma_0'}{\sigma_0''}$. Hence $\sigma' = \sigma_0'' \dt
+\sigma_1$ and $\relatebr{A_1;A_2}{\sigma_0}{\sigma_0''}$, as desired.
+\end{proof}
+\fi
+
+\begin{lem}
+If every $A$ in the set $\A$ is a local action, then $\bigcup \A$ is a local action.
+\end{lem}
+
+\ifextended
+\begin{proof}
+For Safety Monotonicity, suppose $\sigma_0 \# \sigma_1$ and 
+$\lnot \relatebr{\bigcup \A}{\sigma_0}{\fault}$. Suppose by way
+of contradiction that $\relatebr{\bigcup \A}{(\sigma_0 \dt \sigma_1)}{\fault}$. Then there is some $A \in \A$ such that
+$\relatebr{A}{(\sigma_0 \dt \sigma_1)}{\fault}$. By Safety Monotonicity of $A$, we get $\relatebr{A}{\sigma_0}{\fault}$.
+But this means that $\relatebr{\bigcup \A}{\sigma_0}{\fault}$, which is a contradiction.
+
+For Termination Equivalence, suppose that $\sigma_0 \# \sigma_1$ and $\lnot \relatebr{\bigcup \A}{\sigma_0}{\fault}$.
+This means that for every $A \in \A$, $\lnot \relatebr{A}{\sigma_0}{\fault}$. For the forward direction, suppose that 
+$\relatebr{\bigcup \A}{\sigma_0}{\dvg}$. Then $\relatebr{A}{\sigma_0}{\dvg}$ for some $A \in \A$. Thus 
+Termination Equivalence of $A$ gives us $\relatebr{A}{(\sigma_0 \dt \sigma_1)}{\dvg}$, and so we get the desired
+$\relatebr{\bigcup \A}{(\sigma_0 \dt \sigma_1)}{\dvg}$. For the backward direction, suppose that 
+$\relatebr{\bigcup \A}{(\sigma_0 \dt \sigma_1)}{\dvg}$. Then $\relatebr{A}{(\sigma_0 \dt \sigma_1)}{\dvg}$ for some $A \in \A$. Thus 
+Termination Equivalence of $A$ gives us $\relatebr{A}{\sigma_0}{\dvg}$, and so we get the desired
+$\relatebr{\bigcup \A}{\sigma_0}{\dvg}$.
+
+For the Forwards Frame Property, suppose that $\sigma_0 \# \sigma_1$ and $\relatebr{\bigcup \A}{\sigma_0}{\sigma_0'}$.
+Then $\relatebr{A}{\sigma_0}{\sigma_0'}$ for some $A \in \A$, and so by the Forwards Frame Property of $A$, we have
+$\sigma_0' \# \sigma_1$ and $\relatebr{A}{(\sigma_0 \dt \sigma_1)}{(\sigma_0' \dt \sigma_1)}$, which in turn
+implies the desired result.
+
+For the Backwards Frame Property, suppose that $\lnot \relatebr{\bigcup \A}{\sigma_0}{\fault}$ and
+$\relatebr{\bigcup \A}{(\sigma_0 \dt \sigma_1)}{\sigma'}$. Then $\relatebr{A}{(\sigma_0 \dt \sigma_1)}{\sigma'}$
+for some $A \in \A$, and for all $A \in \A$ we have $\lnot \relatebr{A}{\sigma_0}{\fault}$. Hence the
+Backwards Frame Property of $A$ tells us that $\sigma' = \sigma_0' \dt \sigma_1$ and 
+$\relatebr{A}{\sigma_0}{\sigma_0'}$, which implies the desired result.
+\end{proof}
+\fi
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[t]
+\begin{mathpar}
+\begin{bnf}[r@{\ \ \ }c@{\ }]
+\production{& C}
+    \prodcase{c}
+    \prodcase{C_1;C_2}
+    \prodcase{C_1+C_2}
+    \prodcase{C^*}
+\end{bnf}
+\end{mathpar}
+\vspace*{-4ex}
+\begin{align*}
+\forall c \such \den{c} & \in \locact & \den{C_1;C_2} & \isdef \den{C_1};\den{C_2} \\
+\den{C_1+C_2} & \isdef \den{C_1} \cup \den{C_2} & \den{C^*} & \isdef \bigcup_{n \in \N} \den{C}^n \\
+\den{C}^0 & \isdef \id & \den{C}^{n+1} & \isdef \den{C};\den{C}^n
+\end{align*}
+\vspace*{-4ex}
+\caption{Command Definition and Denotational Semantics}
+\label{commands}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Figure~\ref{commands} defines our abstract program syntax and semantics. The language consists of primitive commands, sequencing ($C_1;C_2$),
+nondeterministic choice ($C_1 + C_2$), and finite iteration ($C^*$). The semantics of primitive commands are abstracted~--- the only 
+requirement is that they are local actions. Therefore, from the two previous lemmas and the trivial fact that $\id$ is a local action, 
+it is clear that the semantics of \emph{every} program is a local action.
+
+Note that our concrete language in Section~\ref{concrete} used if statements 
+and while loops. As shown in~\cite{coy07}, it is possible to
+represent if and while constructs with finite iteration and nondeterministic choice by including a primitive command $\assume(B)$,
+which does nothing if the boolean expression $B$ is true, and diverges otherwise. 
+\ifextended
+Given this setup, we can define the primitive command $\assume(B)$ as follows:
+\begin{align*}
+\den{\assume & (B)} \isdef \{(\fault,\fault),(\dvg,\dvg)\} \,\, \cup \\
+& \{(\sigma,\sigma) \pipe \den{B}\sigma = \true\} \cup \{(\sigma,\dvg) \pipe \den{B}\sigma = \false\} \,\, \cup \\
+& \{(\sigma,\fault) \pipe \den{B}\sigma \text{ undefined}\}
+\end{align*}
+It is a simple matter to show that this is a local action. We can then syntactically define if and while statements as follows:
+\begin{align*}
+\condfull{B}{C_1}{C_2} & \isdef (\assume(B);C_1) + (\assume(\lnot B);C_2) \\
+\while{B}{C} & \isdef (\assume(B);C)^*;\assume(\lnot B)
+\end{align*}
+Technically, these definitions only correctly implement if and while statements in terms of which states they can
+terminate at~--- they do not correctly implement divergence behavior since they allow for arbitrary divergence. 
+Thus these definitions should only be used if we do not care about divergence behavior. It is certainly
+still possible to define fully correct if and while statements, but the technical details are
+outside the scope of this work.
+\fi
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[t]
+\begin{mathpar}
+\inferrule*[right=\scriptsize(PRIM)]
+{\lnot \relate{\den{c}}{\sigma}{\fault}}
+{\assertd{\{\sigma\}}{c}{\{\sigma' \pipe \relate{\den{c}}{\sigma}{\sigma'}\}}}
+
+\inferrule*[right=\scriptsize(SEQ)]
+{\assertd{P}{C_1}{Q} \\
+\assertd{Q}{C_2}{R}}
+{\assertd{P}{C_1;C_2}{R}}
+
+\inferrule*[right=\scriptsize(PLUS)]
+{\assertd{P}{C_1}{Q} \\
+\assertd{P}{C_2}{Q}}
+{\assertd{P}{C_1+C_2}{Q}}
+
+\inferrule*[right=\scriptsize(STAR)]
+{\assertd{P}{C}{P}}
+{\assertd{P}{C^*}{P}}
+
+\inferrule*[right=\scriptsize(FRAME)]
+{\assertd{P}{C}{Q}}
+{\assertd{P*R}{C}{Q*R}}
+
+\inferrule*[right=\scriptsize(CONSEQ)]
+{P' \subseteq P \\
+\assertd{P}{C}{Q} \\
+Q \subseteq Q'}
+{\assertd{P'}{C}{Q'}}
+
+\inferrule*[right=\scriptsize(DISJ)]
+{\forall i \in I \such \assertd{P_i}{C}{Q_i}}
+{\assertd{\bigcup P_i}{C}{\bigcup Q_i}}
+
+\inferrule*[right=\scriptsize(CONJ)]
+{\forall i \in I \such \assertd{P_i}{C}{Q_i} \\
+I \neq \emp}
+{\assertd{\bigcap P_i}{C}{\bigcap Q_i}}
+\end{mathpar}
+
+\caption{Inference Rules}
+\label{infrulesabs}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Now that we have defined the interpretation of programs as local actions, we can talk about the meaning of a
+triple $\assert{P}{C}{Q}$. We define an assertion $P$ to be a set of states, and we say that a state
+$\sigma$ satisfies $P$ iff $\sigma \in P$. We can then define the separating conjunction as follows:
+\begin{align*}
+P*Q \isdef \{\sigma \in \Sigma \pipe \exists \sigma_0 \in P,\sigma_1 \in Q \such \sigma = \sigma_0 \dt \sigma_1\}
+\end{align*}
+
+Given an assignment of primitive commands to local actions, we say that a triple is valid, written $\assertm{P}{C}{Q}$, just
+when the following two properties hold for all states $\sigma$ and $\sigma'$:
+\begin{align*}
+& \text{1.) } \sigma \in P \Longrightarrow \lnot \relate{\den{C}}{\sigma}{\fault} \\
+& \text{2.) } \sigma \in P \land \relate{\den{C}}{\sigma}{\sigma'} \Longrightarrow \sigma' \in Q
+\end{align*}
+
+The inference rules of the logic are given in Figure~\ref{infrulesabs}. Note that we are taking a significant presentation shortcut 
+here in the inference rule for primitive commands. Specifically, we assume that we know the exact local action $\den{c}$ of each 
+primitive command $c$. This assumption makes sense when we define our own primitive commands, as we do in the
+logic of Section~\ref{concrete}. However, in a more general setting, we might be provided with an opaque function
+along with a specification (precondition and postcondition) for the function. Since the function is opaque, we must
+consider it to be a primitive command in the abstract setting. Yet we do not know how it is implemented, so we do not know 
+its precise local action. In~\cite{coy07}, the authors provide a method for inferring a ``best'' local action
+from the function's specification. With a decent amount of technical development, we can do something similar here,
+using our stronger definition of locality. 
+\begin{comment}
+\ifextended
+We will now present this technical development.
+
+\begin{definition}
+An \emph{axiom} is a triple of the form $\assert{p}{c}{q}$, where $c$ is a primitive command. 
+Given a particular denotational semantics, we say that an axiom $\assert{p}{c}{q}$ is \emph{semantically valid} 
+under that denotational semantics iff $\assertm{p}{c}{q}$. 
+Given a set of axioms $Ax$, we define the judgment $\assertma{Ax}{p}{C}{q}$ to mean that whenever all the axioms 
+in $Ax$ are semantically valid, $\assertm{p}{C}{q}$ holds. Also, given an axiom set $Ax$, we define the notation 
+$Ax_c$ to be the set of all axioms in $Ax$ of the form $\assert{p}{c}{q}$ for some $p$ and $q$.
+\end{definition}
+
+Once we have a set of axioms $Ax_c$, we need to come up with an interpretation of those axioms as a
+behavior-preserving action that makes all the axioms semantically valid (such an action is referred to as the
+\emph{best local action} in~\cite{coy07}). Unfortunately, we find that with our strong form of locality, 
+there does not always exist such an action (excepting, of course, the trivial action that never terminates on
+any input).
+
+For example, consider a situation where we have the two axioms $A_1: \assert{x=1}{c}{x=2}$ and
+$A_2: \assert{y=1}{c}{y=2}$. Let $\sigma_1$ be the variable store mapping $x$ to $1$, and $\sigma_2$ be the store mapping
+$y$ to $1$. Then $A_1$ tells us that it is safe to run $c$ on $\sigma_1$, and the result should be that the value of $x$
+is updated to $2$. Similarly, $A_2$ implies that $c$ can also run safely on $\sigma_2$, updating $y$. So
+if we let $f$ denote the local, domain-preserving action that we wish to come up with, we have that
+$f(\sigma_1) \subseteq \{\sigma_1'\}$ and $f(\sigma_2) \subseteq \{\sigma_2'\}$ where $\sigma_1'$ is the
+variable store mapping $x$ to $2$, and $\sigma_2'$ is the one mapping $y$ to $2$. Furthermore, since we wish
+to come up with a non-trivial action, we can say that $\sigma_1'$ and $\sigma_2'$ are actually possible
+termination states~--- that is, $f(\sigma_1) = \{\sigma_1'\}$ and $f(\sigma_2) = \{\sigma_2'\}$. But
+now locality tells us that $f(\sigma_1 \bullet \sigma_2) = \{\sigma_1' \bullet \sigma_2\}$, and that
+$f(\sigma_1 \bullet \sigma_2) = \{\sigma_2' \bullet \sigma_1\}$. Hence 
+$\sigma_1' \bullet \sigma_2 = \sigma_2' \bullet \sigma_1$, which is clearly false. Thus we conclude
+that no desired non-trivial action exists.
+
+Notice that this example does not give a contradiction when using the weaker form of locality, since
+we are then free to set $f(\sigma_1 \bullet \sigma_2) = \emp$ (meaning that the action never terminates
+when run on the combined state). This is precisely what is done in~\cite{coy07} to deal with the situation.
+
+Fundamentally, the reason why the above example causes a problem is that the axioms specify incompatible 
+behaviors on two substates on some particular state. We will therefore resolve the problem by
+requiring that our axioms never do this. Specifically, consider a situation where we have axioms $\assert{p_1}{c}{q_1}$
+and $\assert{p_2}{c}{q_2}$, and states $\sigma, \sigma_1, \sigma_2$ such that $\sigma_1 \preceq \sigma$,
+$\sigma_2 \preceq \sigma$, $\sigma_1 \in p_1$, and $\sigma_2 \in p_2$. Let $\bar{\sigma}_1$ and $\bar{\sigma}_2$
+be the states such that $\sigma_1 \bullet \bar{\sigma}_1 = \sigma_2 \bullet \bar{\sigma}_2 = \sigma$.
+Then we interpret the first axiom as saying that $f(\sigma) = q_1^{dom(\sigma_1)} * \{\bar{\sigma}_1\}$, and
+similarly the second axiom says that $f(\sigma) = q_2^{dom(\sigma_2)} * \{\bar{\sigma}_2\}$. We therefore
+need to require that $q_1^{dom(\sigma_1)} * \{\bar{\sigma}_1\} = q_2^{dom(\sigma_2)} * \{\bar{\sigma}_2\}$.
+The formal definition of this property follows.
+
+\vspace*{0.5ex}
+\begin{definition}
+Given that $\sigma_0 \preceq \sigma$, define the notation $\sigma - \sigma_0$ to be the unique state $\sigma_1$ such that
+$\sigma = \sigma_0 \bullet \sigma_1$ (uniqueness is implied by the cancellativity property of separation algebras).
+Then, given set of axioms $Ax$, we say that $Ax$ is \emph{permissible} if, for any primitive command $c$, and any (not necessarily distinct) axioms 
+$\assert{p_1}{c}{q_1}$ and $\assert{p_2}{c}{q_2}$ in $Ax_c$, and any states $\sigma, \sigma_1, \sigma_2$, the following holds:
+\[\begin{array}{l} \sigma_1 \preceq \sigma \land \sigma_2 \preceq \sigma \land \sigma_1 \in p_1 \land \sigma_2 \in p_2 \\
+\hspace{5mm} \Longrightarrow q_1^{dom(\sigma_1)} * \{\sigma - \sigma_1\} = q_2^{dom(\sigma_2)} * \{\sigma - \sigma_2\} \end{array}\]
+We require that all instantiations of the abstract logic use permissible axiom sets.
+\end{definition}
+\else
+\end{comment}
+These details can be found in the technical report of our APLAS publication~\cite{costanzo12:bpsltr}.
+%\fi
+
+Given this setup, we can now prove soundness and completeness of our 
+abstract logic. The details of the proof can be found in our Coq implementation~\cite{costanzo-thesis}.
+\begin{thm}[Soundness and Completeness]
+\begin{align*}
+\assertd{P}{C}{Q} \iff \assertm{P}{C}{Q}
+\end{align*}
+\end{thm}

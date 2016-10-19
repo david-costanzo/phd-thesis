@@ -1,0 +1,388 @@
+\section{Security Verification over Specifications}
+\label{related-methodology}
+
+\paragraph{Noninterference and Relational Program Logics}
+There have been numerous relational program logics in the literature
+that naturally help with verification of noninterference properties,
+as noninterference is a relational property comparing two executions.
+In a relational program logic such as Yang's Relational Separation 
+Logic~\cite{yang07}, logical inference rules are used to verify a 
+relational pre/post-condition pair for two programs. If the
+following Hoare triple is derived,
+\[\rassert{R}{C}{C'}{S},\]
+where $R$ and $S$ are relational predicates, then we are guaranteed
+that: if (1) two initial states $\sigma_1$ and $\sigma_2$ satisfy $R$,
+(2) $C$ takes $\sigma_1$ to final state $\sigma_1'$, and (3) $C'$ takes
+$\sigma_2$ to final state $\sigma_2'$, then $\sigma_1'$ and $\sigma_2'$
+must satisfy $S$. This kind of program logic can easily support
+noninterference: we just make $C$ and $C'$ be the same program,
+and $R$ and $S$ both say that states are related if they are 
+\emph{indistinguishable} to an observing principal or security domain.
+Then the soundness property just described becomes the standard
+unwinding condition of noninterference. As mentioned in 
+Section~\ref{related-ddifc}, Amtoft et al.~\cite{amtoft06} and
+Banerjee et al.~\cite{banerjee08} present two systems that employ 
+this view of relational program logics for verifying noninterference.
+Our own security-aware program logic presented in Chapter~\ref{logic-chapter}
+(and in~\cite{costanzo-ddifc}) also does something similar, although 
+we directly model logical security labels in program state to allow for unary 
+predicates rather than relational predicates; the unary predicates are easier 
+to work with and cleaner for describing intricate security policies.
+
+All of these program logics unfortunately suffer from the issues mentioned 
+in Section~\ref{logic-problems}. Program logics are inherently connected
+to a specific programming language; if one has a system that links together
+code written in different languages (e.g., C and assembly), then a program 
+logic would need to be designed for \emph{each} language being used.
+Program logics also assume full access to the entire system's codebase, which 
+may be an unrealistic assumption under some circumstances. Additionally, 
+security-aware program logics necessarily suffer from some level of
+incompleteness, since they reason about a program's security on line-by-line
+basis, and therefore may not be able to infer that some seemingly-insecure
+operation within a function is actually completely hidden by the function's 
+overall, end-to-end behavior. The novel security verification methodology
+presented in the dissertation gets around all of these difficulties by
+first abstracting all code within a system into precise and abstract
+functional specifications; all security verification is then performed
+over the specifications, and our special security-preserving simulations
+automatically propagate security from the specifications back down to
+the implementations.
+
+\paragraph{Observations and Indistinguishability}
+Our flexible notion of observation presented in
+Chapters~\ref{informal-chapter} and~\ref{methodology-chapter} is similarly 
+powerful to purely semantic and relational views of state indistinguishability,
+such as the ones used in Sabelfeld et al.'s PER model~\cite{sabelfeld99} 
+and Nanevski et al.'s Relational Hoare Type Theory~\cite{rhtt}.
+In those systems, for example, a variable $x$ is considered observable 
+if its value is equal in two related states. In our system, we
+directly say that $x$ is an observation, and then indistinguishability
+is defined as equality of observations. Our approach may at first 
+glance seem less expressive since it uses a specific definition
+for indistinguishability. However, we do not put any restrictions 
+on the type of observation: for any given indistinguishability
+relation $R$, we can represent $R$ by defining the observation 
+function on $\sigma$ to be the set of states related to $\sigma$ by $R$.
+We have not systematically explored the precise extent of policy 
+expressiveness in our methodology; this could be an interesting 
+direction for future work.
+
+Our approach is a generalization of Delimited
+Release~\cite{delimited} and Relaxed 
+Noninterference~\cite{relaxed}. Delimited Release allows
+declassifications only according to certain syntactic 
+expressions (called ``escape hatches''). Relaxed 
+Noninterference uses a similar idea, but in a semantic
+setting: a security label is a function representing a 
+declassification policy, and
+whenever an unobservable variable $x$ is labeled with 
+function $f$, the value $f(x)$ is considered to be
+observable. Our observation function can easily express 
+both of these concepts of declassification.
+
+Sabelfeld and Sands~\cite{sabelfeld-sands} define a road map 
+for analyzing declassification policies in terms of four dimensions: \emph{who} can
+declassify, \emph{what} can be declassified, \emph{when} can declassification occur, 
+and \emph{where} can it occur. Our implicit notion of declassification can easily 
+represent any of these dimensions due to the extreme generality of our methodology. 
+The \emph{who} dimension is handled directly via the explicit parameterization of
+the observation function based on principals. The \emph{what} dimension is directly handled 
+since the observation function is parameterized by program state, and can therefore
+specify exactly what data within the state is observable. The \emph{when} dimension can 
+be handled by representing time within program state (note that this piece of state could 
+be either physical or logical). Similarly, we can handle the 
+\emph{where} dimension by including an explicit program counter within the state.
+
+\begin{comment}
+This semantic approach to security policies allows us to
+specify declassifications without actually downgrading any
+data from unobservable to observable. There are many security
+systems that take a syntactic approach to declassification
+
+Security typing: static vs dynamic, flow-sensitive
+Flow-sensitive security types~\cite{hunt}
+\end{comment}
+
+%\vspace*{-1ex}
+\paragraph{Preserving Security across Simulation/Refinement}
+As explained in Chapter~\ref{informal-chapter}, refinements
+and simulations may fail to preserve security.  There have been a
+number of solutions proposed for dealing with this so-called
+refinement paradox~\cite{jurjens,morgan09,morgan12}.  The one that is
+most closely related to our setup is Murray et al.'s seL4 security
+proof~\cite{murray12,murray13}, where the main security properties are shown to
+be preserved across refinement. As we mentioned in
+Chapter~\ref{informal-chapter}, we employ a similar strategy for security
+preservation in our framework, disallowing high-level specifications
+from exhibiting domain-visible nondeterminism. Because we use an
+extremely flexible notion of observation, however, we encounter
+another difficulty involved in preserving security across simulation;
+this is resolved with the natural solution of requiring simulation
+relations to preserve state indistinguishability.
+
+\section{Security Verification of mCertiKOS}
+\label{related-certikos}
+
+\paragraph{Comparison with mCertiKOS-base}
+Our verified secure kernel builds directly over the ``base'' version of
+mCertiKOS presented in~\cite{certikos-popl}. In that version, the
+many layers of mCertiKOS are connected using CompCert-style
+simulations, and CompCertX is used to integrate C primitives with
+assembly primitives. However, that version does not have general
+notions of observations, events, or behaviors. Technically, CompCert
+expresses external events using traces that appear on the transition
+functions of operational semantics, and then defines whole-execution
+behaviors in terms of events; however, mCertiKOS does not make use of
+these events (the LAsm semantics completely ignores CompCert traces).
+
+Separately from the security verification effort, a large portion of
+our work was devoted to developing the framework of generalized
+observations and indistinguishability-preserving simulations described
+in Chapters~\ref{informal-chapter} and~\ref{methodology-chapter} (over 2000 lines of
+Coq code, as shown in Figure~\ref{secure-loc}), and integrating these
+ideas into mCertiKOS. The previous mCertiKOS soundness theorem
+in~\cite{certikos-popl} only claimed a standard simulation between
+TSysCall and MBoot. We integrated observation functions into the
+mCertiKOS layers, modified this soundness theorem to establish an
+indistinguishability-preserving simulation between TSysCall and MBoot,
+and then defined whole-execution behaviors and proved an extended
+soundness theorem guaranteeing that the behaviors of executions at the
+TSysCall level are identical to those of corresponding executions at
+the MBoot level. This soundness theorem over whole-execution behaviors
+is then used to obtain the end-to-end noninterference property for
+the kernel.
+
+%\vspace*{-1ex}
+\paragraph{Security of seL4}
+An important work in the area of formal operating system
+security is the seL4 verified
+kernel~\cite{klein14,murray12,murray13,sewell11}.  There are some
+similarities between the security proof of seL4 and that of mCertiKOS,
+as both proofs are conducted over a high-level specification and then
+propagated down to a concrete implementation.  Our work, however, has
+three important novelties over the seL4 work. 
+
+First, the seL4's lack of assembly verification is quite
+  significant. Our mCertiKOS kernel consists of 354 lines
+  of assembly code and approximately 3000 lines of C code. Thus the
+  assembly code represents a nontrivial chunk of the codebase that
+  could easily contain security holes.  Furthermore, the assembly code
+  has to deal with low-level hardware details like registers, which
+  are not exposed to high level specifications and might have security
+  holes. Indeed, as discussed in Chapter~\ref{casestudy-proof-chapter}, we
+  needed to patch up a security hole in the context switch primitive
+  related to the CR2 register.
+  %%%%
+  
+Second, our assembly-level machine is a much more realistic
+  model than the abstract C-level machine used by seL4. For example,
+  virtual memory address translation, page fault handlers, and context
+  switches are not verified in seL4.  Chapter~\ref{casestudy-proof-chapter}
+  describes the intricacies of security of load/store primitives (with
+  address translation), page fault handler, and yield. None of them
+  would appear in the seL4 proofs because their machine model is too
+  high level. Addressing this issue is not easy because it requires
+  not just assembly verification but also verified linking of C and
+  assembly components. 
+
+Third, our generalization of the notion of observation allows
+  for highly expressive security policies. The seL4 verification
+  uses a particular policy model based on intransitive noninterference
+  (the intransitive part helps with specifying what IPC is
+  allowed). Our mCertiKOS verification is a case study using the
+  particular policy expressed by the observation function of
+  Chapter~\ref{casestudy-def-chapter}, but our methodology allows for
+  all kinds of policy models depending on context. Thus, while the
+  particular security property that we proved over mCertiKOS is not an
+  advance over the seL4 security property, our new methodology
+  involved in stating and proving the property, and for propagating
+  security proofs through verified compilation and abstraction layers, is
+  a significant advance.
+
+\paragraph{seL4 and Inter-Process Communication}
+As just mentioned, we verify pure isolation between processes when
+IPC is disabled, while seL4 uses intransitive noninterference~\cite{rushby92}
+to specify a policy allowing for processes to communicate with each 
+other. While the seL4 security property is certainly more general, it 
+is also far more complex, and we do not feel the property gives a
+particularly useful security guarantee beyond its specialization to 
+pure isolation (which happens when no processes use IPC). Intransitive
+noninterference allows one to specify an information flow relation
+between principals that is \emph{intransitive}~--- e.g., a policy
+might say that Alice can flow to Bob and Bob can flow to Charlie,
+but Alice cannot flow to Charlie. Therefore, there is some inherent 
+difficulty built into the property: Alice can clearly flow to Charlie
+by using Bob as a middleman. The final seL4 security theorem deals with
+this difficulty by using the intransitive flow relation to specify the 
+minimum number of execution steps required for one principal to 
+influence another. For example, we might say that Alice can influence 
+Bob in $a$ execution steps and Bob can influence Charlie in $b$ steps, 
+but Alice requires $a+b$ execution steps to influence Charlie.
+
+For the mCertiKOS security verification, we choose to stick to the
+clearer property of pure isolation. We could certainly handle IPC
+in a similar way to seL4. For example: in $a$ or more execution 
+steps, Alice's observation is added to Bob's; in $b$ or more steps, 
+Bob's observation is added to Charlie's; in $a+b$ or more steps,
+Alice's observation is added to Charlie's. We have not found much
+value, however, in such a property since it only provides guarantees
+for partial executions, up to a certain number of execution steps.
+We are much more interested in guaranteeing a clean, end-to-end,
+\emph{whole-execution} security property.
+
+%\end{itemize}
+
+%First, the seL4 verification uses a classic notion
+%of observation, similar to external events; the type of observations
+%are the same at the abstract and concrete levels, and the refinement
+%property guarantees that high-level specifications and low-level
+%implementations produce identical observations; our work generalizes
+%observations, allowing them to express different notions of security
+%at different abstraction levels.
+%
+%Second, the seL4 verification only goes down to the level of C
+%implementation; for kernel primitives implemented in assembly, such as
+%context switch, security is verified with respect to an atomic
+%specification that is \emph{assumed} to be correct; the security
+%guarantee we prove about mCertiKOS, on the other hand, applies to the
+%actual assembly execution model of the kernel.  For reference, 
+
+\paragraph{Security of Other OS Kernels} Dam et al.~\cite{prosper-arm} aim to 
+prove isolation of separate kernel components that are allowed to communicate
+across authorized channels. They do not formulate security as standard
+noninterference, since some communication is allowed. Instead, they
+prove a property saying that the machine execution is trace-equivalent
+to execution over an idealized model where the communicating
+components are running on physically-separated machines. Their setup
+is fairly different from ours, as we disallow communication between
+processes and hence prove noninterference. Furthermore, they conduct
+all verification at the assembly level, whereas our methodology
+supports verification and linking at both the C and assembly levels.
+
+The Ironclad~\cite{ironclad} system aims for full correctness and
+security verification of a system stack, which shares a similar
+goal to ours: provide guarantees that apply to the low-level assembly
+execution of the machine. The overall approaches are quite different,
+however. Ironclad uses Dafny~\cite{dafny} and Z3~\cite{z3} for
+verification, whereas our approach uses Coq; this means that Ironclad
+relies on SMT solving, which allows for more automation, but does not
+produce machine-checkable proofs as Coq does. 
+Another difference is in the treatment
+of high-level specifications. While Ironclad allows some verification
+to be done in Dafny using high-level specifications, a trusted
+translator converts them into low-level specifications expressed in
+terms of assembly execution. The final security guarantee applies only
+to the assembly level; one must trust that the guarantee corresponds
+to the high-level intended specifications. Contrast this to our
+approach, where we verify that low-level execution conforms to the
+high-level policy.
+
+\ifextended
+\paragraph{Asbestos, HiStar, and Flume}
+Asbestos~\cite{asbestos} is a security-aware operating system that
+attempts to enforce security policies by monitoring label propagation
+between communicating processes. Each process $p$ has a send label $S_p$ 
+representing the security level of information that has tainted $p$, and
+a receive label $R_p$ representing the maximum security level that
+$p$ is ever allowed to be tainted with. Process $p$ is allowed
+to send a message to process $q$ only if $S_p \sqsubseteq R_q$
+(ordering defined by a lattice of labels), and $q$'s send label
+will be tainted by the message, increasing from $S_q$ to
+$S_q \sqcup S_p$. In this way, the operating system can prevent
+untrusted processes from maliciously or accidentally leaking users' 
+secret data. Declassification is supported as well: a process
+may have declassification privileges for user Alice, implying that
+Alice trusts that process to only release her secret data in
+ways that she deems appropriate.
+
+HiStar~\cite{histar} is another security-aware operating system 
+that was directly inspired by Asbestos. It expands upon the
+Asbestos label model to design a low-level kernel interface
+that tracks security label propagation between various kernel
+objects. While Asbestos only tracks labels between
+processes communicating via IPC mechanisms, HiStar tracks labels
+on \emph{all} relevant resources, such as shared memory.
+
+Both Asbestos and HiStar are helpful in providing users with
+some some amount of protection for their secret data. However,
+neither operating system provides any formal guarantees. Both
+the code and the label model are too complex to reasonably allow
+for formal reasoning. Flume~\cite{flume} is an IFC system
+that provides security between user processes, and is built
+purely in user space. Flume borrows the label model of
+Asbestos/HiStar, and improves upon it by separating out
+mechanisms for privacy, integrity, authentication, declassification,
+and port send rights. Because the system operates purely at
+user level, and the label model is cleaner, some formal reasoning
+about Flume is possible. The notions of safety and security are
+formally defined within the model, and there is a formal
+argument that security is enforced. However, because Flume only
+models user space, all of the guarantees are predicated 
+upon the assumption that the underlying operating system is
+behaving appropriately. This results in a potentially enormous
+trusted computing base.
+
+The work presented in this dissertation has the potential to
+greatly improve the trustworthiness of IFC systems like
+Asbestos, HiStar, and Flume. By verifying the security of
+the entire operating system kernel API, we can remove Flume's
+reliance on trusting the entire kernel codebase. In theory,
+one could imagine implementing Flume over the mCertiKOS API;
+however, Asbestos, HiStar, and Flume all use models that
+support explicit declassification via specially-marked
+trusted processes. As described previously,
+our methodology handles declassification differently: we
+require that declassifications are implicitly encoded within security
+policies through careful construction of an observation function.
+In other words, instead of allowing a certain process to be
+trusted by Alice to declassify her data, we require the
+process's functional specification to say precisely
+under what circumstances it will release Alice's data.
+Therefore, depending on the specific application, some additional
+specification work is required to directly support a Flume-like 
+system within our methodology; however, this additional work
+yields a far more trustworthy guarantee since we do not need
+to trust either user processes with declassification privileges
+or the OS kernel code.
+
+% \paragraph{Future Work}
+%\vspace*{-.5ex}
+\section{Conclusions}
+\label{concl}
+This dissertation presents a lengthy journey, starting from a novel,
+stronger notion of local reasoning that is compatible with
+security verification (Chapter~\ref{bpsl-chapter}), then moving
+on to a new program logic making use of this strong locality to
+formally guarantee security of C-like programs (Chapter~\ref{logic-chapter}), 
+and finally learning from the problematic aspects of this program
+logic to devise a general methodology for security verification that
+is completely free from a specific programming language and logic
+(Chapters~\ref{informal-chapter} and~\ref{methodology-chapter}). 
+The beauty of this final destination is then demonstrated with the
+formal security verification of a real, executable operating system 
+kernel (Chapters~\ref{casestudy-def-chapter},~\ref{casestudy-proof-chapter},
+and~\ref{timing-chapter}).
+
+Ultimately, we consider the following abstraction principle to be the most
+fundamental and encompassing conclusion of this journey: whenever
+one desires to prove some property $P$ over a complex system implemented
+in low-level code, one should first verify a precise and descriptive
+\emph{specification} of the system's behavior at an extremely high level 
+of abstraction. Then property $P$ should be proved by looking \emph{only}
+at the specification; all implementation code should be completely irrelevant. 
+Of course, it is crucial that $P$ can then be soundly propagated from the specification 
+to any correct implementation. This principle of abstraction is advocated
+by Gu et al. in the original presentation of mCertiKOS~\cite{certikos-popl},
+with the desired precise high-level specifications being deemed ``deep
+specifications''. In that work, however, it is only an optimistic hope that
+the principle can be applied to any desired property $P$. In this dissertation,
+we demonstrate some solid evidence by showing that a property as complex as 
+noninterference fits cleanly. Indeed, noninterference is famous in the
+literature for not being preserved across program refinement. Nevertheless,
+our novel contribution shows that this problem can be resolved in a clean
+manner with only a minor strengthening of the requirements for refinement.
+In an ideal future, all software would come with a highly-abstracted deep 
+specification, and all properties of interest would be derivable
+by utilizing \emph{only} this deep specification.
+
+

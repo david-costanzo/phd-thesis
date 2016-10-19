@@ -1,0 +1,46 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% BNF Environment designed by Chris
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% modified by Valery
+%% and Nadeem
+
+\newlength\bnfwidth
+\setlength\bnfwidth{.7\columnwidth}
+\newlength\bnfnarrowwidth
+\setlength\bnfnarrowwidth{.57\columnwidth}
+
+%\newcommand\bnfsep{\ensuremath\mid}
+\newcommand\bnfsep{\raisebox{0pt}[2ex]{$\mid$}}
+\newcommand\bnfbar{\bnfsep~}
+
+\newlength\bnfbarwidth
+\settowidth\bnfbarwidth\bnfbar
+
+\newcommand\bnfX[2]{%
+  \newif\ifInBnfProduction\InBnfProductionfalse%
+  \def\endproduction{\ifInBnfProduction\end{minipage}\\\fi}%
+  \newcommand\production[1]{%
+    \endproduction%
+    ##1 & \hspace*{-1\bnfbarwidth}%
+    \begin{minipage}[t]{#1}\raggedright%
+    \newif\ifFirstBnfCase\FirstBnfCasetrue
+    \InBnfProductiontrue
+    }%
+  \newcommand\produc[2]{\production{(\textit{##1}) & {##2}}}
+  \providecommand\case[1]{%    %% some other packages may already use \case
+    \ifFirstBnfCase\hspace*{\bnfbarwidth}\FirstBnfCasefalse%
+    \else\bnfbar%
+    \fi\ensuremath{##1}%
+    }%
+  \providecommand\prodcase[1]{%   %% this is an alternate command for \case
+    \ifFirstBnfCase\hspace*{\bnfbarwidth}\FirstBnfCasefalse%
+    \else\bnfbar%
+    \fi\ensuremath{##1}%
+    }%
+  \begin{array}{#2@{\; ::=\ }l@{}}%
+  \InBnfProductionfalse%
+ }
+\newcommand\bnfXend{\endproduction\end{array}}
+
+\newenvironment{bnf}[1][@{}r]{\bnfX\bnfwidth{#1}}{\bnfXend}
+\newenvironment{bnfnarrow}[1][@{}r]{\bnfX\bnfnarrowwidth{#1}}{\bnfXend}
